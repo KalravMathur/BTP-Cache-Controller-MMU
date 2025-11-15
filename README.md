@@ -101,18 +101,6 @@ vcs file1.v file1tb.v +vcs+fsdbon -kdb -debug_access+all -full64
 
 ---
 
-## References
-
-[1] S. R. Sarangi, *Computer Architecture and Organization*. McGraw-Hill Education, 2017.
-
-[2] SHAKTI Processor Project, "SHAKTI Cache Controller Implementation in Bluespec," https://gitlab.com/shaktiproject/uncore/caches
-
-[3] Geeks for Geeks, "Cache Memory in Computer Organization," https://www.geeksforgeeks.org/cache-memory-in-computer-organization/
-
-[4] Geeks for Geeks, "Virtually Indexed Physically Tagged (VIPT) Cache," https://www.geeksforgeeks.org/computer-organization-architecture/virtually-indexed-physically-tagged-vipt-cache/
-
----
-
 ## License
 
 This project is licensed under **Shiv Nadar University License** as specified in the source files.
