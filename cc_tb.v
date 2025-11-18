@@ -324,7 +324,6 @@ module tb_cache_controller;
     end
 
     // Wait for the full miss to be handled
-    integer ok;
     wait_for_ready(0, 2000, ok);
     if (!ok) $fatal("Timeout waiting for ready_stall==0 (end of test 5)");
 
