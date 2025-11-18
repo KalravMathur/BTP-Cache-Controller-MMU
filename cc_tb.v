@@ -88,7 +88,7 @@ module tb_cache_controller;
   reg     [TAG_BITS_TB-1:0] tb_tag_store                            [0:63][0:1];
   reg                       tb_valid_store                          [0:63][0:1];
   integer                   idx;  // used for combinational read mux
-
+  integer                   ok;
 
   // --- Clock Generator ---
   always #((CLK_PERIOD / 2)) clk = ~clk;
@@ -225,7 +225,7 @@ module tb_cache_controller;
     end
   end
 
-  integer ok;
+
   // --- Main Test Sequence ---
   initial begin
     $display("--- Testbench Started ---");
