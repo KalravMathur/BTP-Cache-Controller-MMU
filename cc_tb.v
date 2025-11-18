@@ -364,7 +364,7 @@ module tb_cache_controller;
   // Task to issue a read request and wait for it to complete
   task read_mem_req(input [31:0] addr);
     begin
-      integer ok;
+      //integer ok;
       wait_for_ready(0, 2000, ok);
       if (!ok) $fatal("Timeout before issuing read_mem_req");
 
@@ -395,7 +395,7 @@ module tb_cache_controller;
   // Task to issue a write request and wait for it to complete
   task write_mem_req(input [31:0] addr, input [31:0] data);
     begin
-      integer ok;
+      //integer ok;
       wait_for_ready(0, 2000, ok);
       if (!ok) $fatal("Timeout before issuing write_mem_req");
 
