@@ -186,8 +186,8 @@ module tb_cache_controller;
         $dumpvars(1, tb_cache_controller.ready_stall);
         
         // Monitor the FSM state
-        $dumpvars(1, tb_cache_controller.state);
-        $dumpvars(1, tb_cache_controller.next_state);
+        $dumpvars(1, tb_cache_controller.dut.state);
+        $dumpvars(1, tb_cache_controller.dut.next_state);
         
         // Monitor Cache Mem Interface (as requested)
         $dumpvars(1, tb_cache_controller.cache_mem_index);
