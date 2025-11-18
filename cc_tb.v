@@ -377,7 +377,7 @@ module tb_cache_controller;
       read_mem <= 1'b0;
 
       // Wait for the controller to finish (go from stall to ready)
-      integer ok;
+      //integer ok;
       wait_for_ready(1, 2000, ok);
       if (!ok) $fatal("Timeout waiting for controller to start handling read request");
 
@@ -409,7 +409,7 @@ module tb_cache_controller;
       write_mem <= 1'b0;
 
       // Wait for the controller to finish (go from stall to ready)
-      integer ok;
+      //integer ok;
       wait_for_ready(1, 2000, ok);
       if (!ok) $fatal("Timeout waiting for controller to start handling write request");
       $display("TB: Controller is STALLED (handling request)");
