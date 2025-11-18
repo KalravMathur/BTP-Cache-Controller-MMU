@@ -98,6 +98,17 @@ module cache_controller (
   localparam [2:0] S_WRITE_THROUGH_WAIT = 3'b110;  // Wait for main memory
 
   reg [2:0] state, next_state;
+
+  // --- Data Path Registers ---
+  // Registers to hold data and addresses between states
+  reg [31:0] reg_data_to_cpu;
+
+  reg [511:0] reg_block_from_mem;
+  reg [31:0] reg_phy_addr;
+  reg [31:0] reg_data_from_mmu;
+  reg reg_is_write;
+  reg reg_is_read;
+
   // --- Internal Storage (Tag, Valid, LRU) ---
   // These are the core registers of the controller
   reg [TAG_BITS-1:0] tag_store[0:NUM_SETS-1][0:1];  // Tag store for 2 ways
@@ -113,30 +124,19 @@ module cache_controller (
   assign addr_index  = reg_phy_addr[31-TAG_BITS : OFFSET_BITS];
   assign addr_offset = reg_phy_addr[OFFSET_BITS-1 : 0];
   // Word-level select from a 512-bit block
-  wire    [  3:0] word_offset = addr_offset[5:2];  // 64B block, 4B word
+  wire    [3:0] word_offset = addr_offset[5:2];  // 64B block, 4B word
 
   // --- Hit/Miss Logic (Combinational) ---
-  wire            way0_hit = (tag_store[addr_index][0] == addr_tag) && valid_store[addr_index][0];
-  wire            way1_hit = (tag_store[addr_index][1] == addr_tag) && valid_store[addr_index][1];
-  wire            is_hit = way0_hit || way1_hit;
+  wire          way0_hit = (tag_store[addr_index][0] == addr_tag) && valid_store[addr_index][0];
+  wire          way1_hit = (tag_store[addr_index][1] == addr_tag) && valid_store[addr_index][1];
+  wire          is_hit = way0_hit || way1_hit;
 
-  // --- Data Path Registers ---
-  // Registers to hold data and addresses between states
-
-  // ** BUG FIX: This is now a true sequential register for the output **
-  reg     [ 31:0] reg_data_to_cpu;
-
-  reg     [511:0] reg_block_from_mem;
-  reg     [ 31:0] reg_phy_addr;
-  reg     [ 31:0] reg_data_from_mmu;
-  reg             reg_is_write;
-  reg             reg_is_read;
 
 
   // --- FSM Sequential Logic ---
 
-  integer         i;  //index cursor for arrays
-  reg             victim_way;  //temp reg for storing which way to evict
+  integer       i;  //index cursor for arrays
+  reg           victim_way;  //temp reg for storing which way to evict
   always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
       state <= S_IDLE;
@@ -189,7 +189,7 @@ module cache_controller (
       // This happens on the same cycle the FSM is in S_CHECK_HIT
       if (state == S_CHECK_HIT && is_hit && reg_is_read) begin
         if (way0_hit || way1_hit) begin
-          reg_data_to_cpu <= cache_mem_data_out[(req_word_offset*32)+:32];
+          reg_data_to_cpu <= cache_mem_data_out[(word_offset*32)+:32];
         end
       end
 
