@@ -17,8 +17,6 @@ This repository contains a comprehensive **Register Transfer Level (RTL)** desig
 
 ---
 
-## Features
-
 ### Memory Management Unit (MMU)
 - 32-bit virtual address to 32-bit physical address translation
 - Includes a conceptual model for a Translation Lookaside Buffer (TLB)
