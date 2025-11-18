@@ -225,7 +225,7 @@ module tb_cache_controller;
     end
   end
 
-
+  integer ok;
   // --- Main Test Sequence ---
   initial begin
     $display("--- Testbench Started ---");
@@ -248,7 +248,7 @@ module tb_cache_controller;
     rst_n <= 1;  // De-assert reset
     $display("--- DUT Reset ---");
 
-    integer ok;
+
     wait_for_ready(0, 2000, ok);
     if (!ok) $fatal("Timeout waiting for initial ready_stall==0");
 
