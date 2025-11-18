@@ -19,7 +19,7 @@
 // Revision History:
 // Date          By                     Change Notes
 // 14 Nov 2025   Kalrav Mathur          Original
-//
+// 18 Nov 2025   Kalrav Mathur          Fix crital logic errors (now simulation working) - need to fix some logic errors now based on the waveform
 ////////////////////////////////////////////////////////////////////////////////
 
 /*
