@@ -85,8 +85,9 @@ module tb_cache_controller;
   localparam INDEX_BITS_TB = 6;
   localparam OFFSET_BITS_TB = 6;
   // TB tag/valid arrays (kept in sync when TB observes cache writes)
-  reg [TAG_BITS_TB-1:0] tb_tag_store  [0:63][0:1];
-  reg                   tb_valid_store[0:63][0:1];
+  reg     [TAG_BITS_TB-1:0] tb_tag_store                            [0:63][0:1];
+  reg                       tb_valid_store                          [0:63][0:1];
+  integer                   idx;  // used for combinational read mux
 
 
   // --- Clock Generator ---
@@ -107,7 +108,7 @@ module tb_cache_controller;
     // default
     cache_mem_data_out = {512{1'b0}};
     // compute index once
-    integer idx;
+    //integer idx;
     idx = cache_mem_index;
     // pick way1 if valid and tag matches current request tag (derived from phy_addr)
     // Tag bits: [31:12] (20 bits)
@@ -183,19 +184,19 @@ module tb_cache_controller;
 
       // Start a write (if requested and nothing else in progress)
       if (main_mem_write_req && !mem_serving_read && !mem_serving_write) begin
-        mem_pending_block     <= main_mem_addr >> OFFSET_BITS;  // block index
-        mem_pending_word_addr <= main_mem_addr[OFFSET_BITS-1:2];  // word within block
+        mem_pending_block     <= main_mem_addr >> OFFSET_BITS_TB;  // block index
+        mem_pending_word_addr <= main_mem_addr[OFFSET_BITS_TB-1:2];  // word within block
         mem_serving_write     <= 1'b1;
         mem_latency_cnt       <= MEM_LATENCY_CYCLES;
-        $display("TB: Main Mem Write START. Block: %0d, Word: %0d", main_mem_addr >> OFFSET_BITS,
-                 main_mem_addr[OFFSET_BITS-1:2]);
+        $display("TB: Main Mem Write START. Block: %0d, Word: %0d",
+                 main_mem_addr >> OFFSET_BITS_TB, main_mem_addr[OFFSET_BITS_TB-1:2]);
       end  // Start a read (if requested and nothing else in progress)
 
       else if (main_mem_read_req && !mem_serving_read && !mem_serving_write) begin
-        mem_pending_block <= main_mem_addr >> OFFSET_BITS;
+        mem_pending_block <= main_mem_addr >> OFFSET_BITS_TB;
         mem_serving_read  <= 1'b1;
         mem_latency_cnt   <= MEM_LATENCY_CYCLES;
-        $display("TB: Main Mem Read START. Block: %0d", main_mem_addr >> OFFSET_BITS);
+        $display("TB: Main Mem Read START. Block: %0d", main_mem_addr >> OFFSET_BITS_TB);
       end  // Service in-progress transaction
 
 
@@ -247,8 +248,10 @@ module tb_cache_controller;
     rst_n <= 1;  // De-assert reset
     $display("--- DUT Reset ---");
 
-    // Wait for cache to be ready
-    if (!wait_for_ready(0, 2000)) $fatal("Timeout waiting for initial ready_stall==0");
+    integer ok;
+    wait_for_ready(0, 2000, ok);
+    if (!ok) $fatal("Timeout waiting for initial ready_stall==0");
+
 
     #CLK_PERIOD;
 
@@ -321,7 +324,10 @@ module tb_cache_controller;
     end
 
     // Wait for the full miss to be handled
-    if (!wait_for_ready(0, 2000)) $fatal("Timeout waiting for ready_stall==0 (end of test 5)");
+    integer ok;
+    wait_for_ready(0, 2000, ok);
+    if (!ok) $fatal("Timeout waiting for ready_stall==0 (end of test 5)");
+
 
     #CLK_PERIOD;
 
@@ -333,23 +339,25 @@ module tb_cache_controller;
   end
 
   // --- Utility: bounded wait for ready_stall with timeout (cycles) ---
-  function automatic bit wait_for_ready(input bit target, input integer timeout_cycles);
+  // Implemented as a task (tasks may contain timing controls).
+  task wait_for_ready(input integer target, input integer timeout_cycles, output integer success);
     integer cc;
     begin
       cc = 0;
-      // Wait using clock edges for deterministic behavior
+      success = 0;
+      // Use clock edges for deterministic waits
       while (ready_stall !== target) begin
         @(posedge clk);
         cc = cc + 1;
         if (cc > timeout_cycles) begin
           $display("TB: TIMEOUT waiting for ready_stall == %0d after %0d cycles", target, cc);
-          wait_for_ready = 1'b0;
-          return;
+          success = 0;
+          disable wait_for_ready;  // exit task
         end
       end
-      wait_for_ready = 1'b1;
+      success = 1;
     end
-  endfunction
+  endtask
 
 
   // --- Helper Tasks ---
@@ -357,7 +365,10 @@ module tb_cache_controller;
   // Task to issue a read request and wait for it to complete
   task read_mem_req(input [31:0] addr);
     begin
-      if (!wait_for_ready(0, 2000)) $fatal("Timeout before issuing read_mem_req");
+      integer ok;
+      wait_for_ready(0, 2000, ok);
+      if (!ok) $fatal("Timeout before issuing read_mem_req");
+
 
       phy_addr <= addr;
       read_mem <= 1'b1;
@@ -367,11 +378,15 @@ module tb_cache_controller;
       read_mem <= 1'b0;
 
       // Wait for the controller to finish (go from stall to ready)
-      if (!wait_for_ready(1, 2000))
-        $fatal("Timeout waiting for controller to start handling read request");
+      integer ok;
+      wait_for_ready(1, 2000, ok);
+      if (!ok) $fatal("Timeout waiting for controller to start handling read request");
+
 
       $display("TB: Controller is STALLED (handling request)");
-      if (!wait_for_ready(0, 2000)) $fatal("Timeout waiting for controller to finish read request");
+      wait_for_ready(0, 2000, ok);
+      if (!ok) $fatal("Timeout waiting for controller to finish read request");
+
 
       $display("TB: Controller is READY");
       #CLK_PERIOD;  // Settle
@@ -381,7 +396,10 @@ module tb_cache_controller;
   // Task to issue a write request and wait for it to complete
   task write_mem_req(input [31:0] addr, input [31:0] data);
     begin
-      if (!wait_for_ready(0, 2000)) $fatal("Timeout before issuing write_mem_req");
+      integer ok;
+      wait_for_ready(0, 2000, ok);
+      if (!ok) $fatal("Timeout before issuing write_mem_req");
+
 
       phy_addr <= addr;
       data_from_cpu <= data;
@@ -392,11 +410,13 @@ module tb_cache_controller;
       write_mem <= 1'b0;
 
       // Wait for the controller to finish (go from stall to ready)
-      if (!wait_for_ready(1, 2000))
-        $fatal("Timeout waiting for controller to start handling write request");
+      integer ok;
+      wait_for_ready(1, 2000, ok);
+      if (!ok) $fatal("Timeout waiting for controller to start handling write request");
       $display("TB: Controller is STALLED (handling request)");
-      if (!wait_for_ready(0, 2000))
-        $fatal("Timeout waiting for controller to finish write request");
+      wait_for_ready(0, 2000, ok);
+      if (!ok) $fatal("Timeout waiting for controller to finish write request");
+
       $display("TB: Controller is READY");
       #CLK_PERIOD;  // Settle
     end
