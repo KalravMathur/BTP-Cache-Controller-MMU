@@ -105,17 +105,21 @@ module tb_cache_controller;
 
   // Combinational Read Port
   // TB-side combinational read port: select data based on TB-mirrored tags/valids
+  // ** BUG FIX: Use DUT's reg_phy_addr instead of phy_addr for tag comparison **
+  // The DUT latches phy_addr into reg_phy_addr when going to S_CHECK_HIT.
+  // During S_CHECK_HIT, phy_addr may change (new request), but we need to
+  // compare against the LATCHED address tag stored in reg_phy_addr.
   always @(*) begin
     // default
     cache_mem_data_out = {512{1'b0}};
     // compute index once
     //integer idx;
     idx = cache_mem_index;
-    // pick way1 if valid and tag matches current request tag (derived from phy_addr)
+    // pick way1 if valid and tag matches latched request tag (from dut.reg_phy_addr)
     // Tag bits: [31:12] (20 bits)
-    if (tb_valid_store[idx][1] && (tb_tag_store[idx][1] == phy_addr[31:12])) begin
+    if (tb_valid_store[idx][1] && (tb_tag_store[idx][1] == dut.reg_phy_addr[31:12])) begin
       cache_mem_data_out = cache_sram[idx*2+1];
-    end else if (tb_valid_store[idx][0] && (tb_tag_store[idx][0] == phy_addr[31:12])) begin
+    end else if (tb_valid_store[idx][0] && (tb_tag_store[idx][0] == dut.reg_phy_addr[31:12])) begin
       cache_mem_data_out = cache_sram[idx*2+0];
     end else begin
       // no valid line in this testbench model: return block of zeros
@@ -150,12 +154,17 @@ module tb_cache_controller;
   reg [511:0] main_memory      [0:1023];  // A small 8KB main memory
   reg [ 31:0] mem_addr_reg;
   reg         mem_read_pending;
+  integer     mem_init_i;
+  integer     mem_init_j;
 
   initial begin
     // Pre-load main memory with some test data
-    // ** SYNTAX FIX: Removed 'integer' from loop declaration **
-    for (i = 0; i < 1024; i = i + 1) begin
-      main_memory[i] = {512{1'b0}} + i;  // Block 'i' contains data 'i'
+    // Each block contains 16 words (512 bits / 32 bits)
+    // Word j in block i contains the value (i*16 + j)
+    for (mem_init_i = 0; mem_init_i < 1024; mem_init_i = mem_init_i + 1) begin
+      for (mem_init_j = 0; mem_init_j < 16; mem_init_j = mem_init_j + 1) begin
+        main_memory[mem_init_i][(mem_init_j*32)+:32] = (mem_init_i * 16) + mem_init_j;
+      end
     end
   end
 
@@ -275,12 +284,11 @@ module tb_cache_controller;
     #CLK_PERIOD;
     if (hit_miss == 1 && ready_stall == 0) begin
       $display("TB: Read Hit successful!");
-      // Check data: main_memory[0x1000 >> 6] = main_memory[64] = 64
-      // Word offset is 0.
-      if (data_to_cpu == 32'd64)  // Word 0 of block 64
+      // Check data: Block 0x40 (64), Word 0 = 64*16 + 0 = 1024 = 0x400
+      if (data_to_cpu == 32'd1024)  // Word 0 of block 64
         $display("TB: Read Hit Data correct! (0x%h)", data_to_cpu);
       else
-        $display("TB: ERROR! Read Hit Data incorrect! (Got 0x%h, Exp 0x%h)", data_to_cpu, 32'd64);
+        $display("TB: ERROR! Read Hit Data incorrect! (Got 0x%h, Exp 0x%h)", data_to_cpu, 32'd1024);
     end else begin
       $display("TB: ERROR! Read Hit failed! (hit: %b, ready: %b)", hit_miss, ready_stall);
     end
