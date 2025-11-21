@@ -65,6 +65,9 @@ module cache_controller (
 
 
     // --- Interface to Cache Memory ---
+    output wire way0_hit,
+    output wire way1_hit,
+    output wire lru_bit,
     output reg[5:0]  cache_mem_index,  // Index to read/write in cache (6 bits cause 64 sets for current Block and cache size)
     output reg [511:0] cache_mem_data_in,  // Data block to write to cache
     output reg cache_mem_write_en,  // Write enable for cache
@@ -138,6 +141,7 @@ module cache_controller (
     integer       i;  //index cursor for arrays
     reg           victim_way;  //temp reg for storing which way to evict
     always @(posedge clk or negedge rst_n) begin
+
         if (!rst_n) begin
             state <= S_IDLE;
             reg_data_to_cpu <= 'd0;  // ** BUG FIX: Reset the output register **
@@ -186,7 +190,7 @@ module cache_controller (
                 else lru_store[addr_index] <= 1'b0;  // Way 0 is now LRU so we set the bit to 0
             end
 
-            // ** BUG FIX: Latch the output data on a Read Hit **
+            // Latch the cache mem output data on a Read Hit
             // This happens on the same cycle the FSM is in S_CHECK_HIT
             if (state == S_CHECK_HIT && is_hit && reg_is_read) begin
                 if (way0_hit || way1_hit) begin
@@ -228,10 +232,6 @@ module cache_controller (
         main_mem_read_req  = 1'b0;
         main_mem_write_req = 1'b0;
 
-        // ** BUG FIX: Removed default assignment for reg_data_to_cpu **
-        // (This default is also needed for the internal reg_data_to_cpu latch)
-        // reg_data_to_cpu = 'd0;  <-- This was the bug
-
         case (state)
             S_IDLE: begin
                 if (read_mem || write_mem) begin
@@ -243,8 +243,6 @@ module cache_controller (
                 if (reg_is_read) begin
                     if (is_hit) begin
 
-                        // Read Hit: Get data from cache 
-                        // ** BUG FIX: Logic moved to sequential block **
                         next_state = S_IDLE;
                     end else begin
                         // Read Miss
