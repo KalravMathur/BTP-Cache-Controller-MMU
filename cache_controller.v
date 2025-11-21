@@ -65,9 +65,6 @@ module cache_controller (
 
 
     // --- Interface to Cache Memory ---
-    //output wire way0_hit,
-    //output wire way1_hit,
-    //output wire lru_bit,
     output reg[5:0]  cache_mem_index,  // Index to read/write in cache (6 bits cause 64 sets for current Block and cache size)
     output reg [511:0] cache_mem_data_in,  // Data block to write to cache
     output reg cache_mem_write_en,  // Write enable for cache
@@ -127,24 +124,28 @@ module cache_controller (
     assign addr_index  = reg_phy_addr[31-TAG_BITS : OFFSET_BITS];
     assign addr_offset = reg_phy_addr[OFFSET_BITS-1 : 0];
     // Word-level select from a 512-bit block
-    wire    [3:0] word_offset = addr_offset[5:2];  // 64B block, 4B word
+    wire    [  3:0] word_offset = addr_offset[5:2];  // 64B block, 4B word
 
     // --- Hit/Miss Logic (Combinational) ---
-    wire          way0_hit = (tag_store[addr_index][0] == addr_tag) && valid_store[addr_index][0];
-    wire          way1_hit = (tag_store[addr_index][1] == addr_tag) && valid_store[addr_index][1];
-    wire          is_hit = way0_hit || way1_hit;
+    wire            way0_hit = (tag_store[addr_index][0] == addr_tag) && valid_store[addr_index][0];
+    wire            way1_hit = (tag_store[addr_index][1] == addr_tag) && valid_store[addr_index][1];
+    wire            is_hit = way0_hit || way1_hit;
 
 
 
     // --- FSM Sequential Logic ---
 
-    integer       i;  //index cursor for arrays
-    reg           victim_way;  //temp reg for storing which way to evict
-    always @(posedge clk or negedge rst_n) begin
+    integer         i;  //index cursor for arrays
+    reg             victim_way;  //temp reg for storing which way to evict
 
+    // Helper to modify a 512-bit block with a new 32-bit word
+    // This is needed for updating the cache on a write hit
+    reg     [511:0] modified_cache_line;
+
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= S_IDLE;
-            reg_data_to_cpu <= 'd0;  // ** BUG FIX: Reset the output register **
+            reg_data_to_cpu <= 'd0;
 
             // Initialize tag/valid stores on reset
             for (i = 0; i < NUM_SETS; i = i + 1) begin
@@ -160,7 +161,7 @@ module cache_controller (
         end //if !rst
      
         else begin
-            state <= next_state;  //increment state for next clock
+            state <= next_state;
 
             if (next_state == S_IDLE) begin
                 reg_is_read  <= 1'b0;
@@ -190,8 +191,7 @@ module cache_controller (
                 else lru_store[addr_index] <= 1'b0;  // Way 0 is now LRU so we set the bit to 0
             end
 
-            // Latch the cache mem output data on a Read Hit
-            // This happens on the same cycle the FSM is in S_CHECK_HIT
+            // Latch the output data on a Read Hit
             if (state == S_CHECK_HIT && is_hit && reg_is_read) begin
                 if (way0_hit || way1_hit) begin
                     reg_data_to_cpu <= cache_mem_data_out[(word_offset*32)+:32];
@@ -202,11 +202,11 @@ module cache_controller (
             // Update cache on refill
             if (state == S_READ_MISS_REFILL) begin
                 //eviction is decided here
-                victim_way = lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]]; //victim way is the way which is decided to be evicted based on LRU
+                victim_way = lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]];
 
-                tag_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]][victim_way]   <= reg_phy_addr[31 : 32-TAG_BITS]; //set the new phy addr tag in the tag array 
+                tag_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]][victim_way]   <= reg_phy_addr[31 : 32-TAG_BITS];
                 valid_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]][victim_way] <= 1'b1;
-                lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]]   <= ~victim_way; // Update LRU and set the other tag in current set as victim for next evistion
+                lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]] <= ~victim_way;
             end
         end  //end else 
     end  //end always block
@@ -215,22 +215,26 @@ module cache_controller (
     // Default outputs
     assign data_to_cpu = reg_data_to_cpu;  // Default to registered value
     assign hit_miss    = is_hit;  // Default to hit logic
-    //assign ready_stall        = (state != S_IDLE); // Stall CPU if not idle
+
     wire serviced_now = (state == S_CHECK_HIT) && is_hit && reg_is_read;
-    assign ready_stall = ~((state == S_IDLE) || serviced_now);
+    // Also ready if we just finished a write
+    wire write_done = (state == S_WRITE_THROUGH_WAIT) && main_mem_ready;
+    assign ready_stall = ~((state == S_IDLE) || serviced_now || write_done);
 
 
     always @(*) begin
-        next_state         = state;
-        // **FIX:** Default values MUST be set inside the always block
-        cache_mem_index    = addr_index;  // Default to current index for read hits
-        cache_mem_data_in  = 'd0;
-        cache_mem_write_en = 1'b0;
+        next_state          = state;
+        // Default values 
+        cache_mem_index     = addr_index;  // Default to current index for read hits
+        cache_mem_data_in   = 'd0;
+        cache_mem_write_en  = 1'b0;
 
-        main_mem_addr      = 'd0;
-        main_mem_data_out  = 'd0;
-        main_mem_read_req  = 1'b0;
-        main_mem_write_req = 1'b0;
+        main_mem_addr       = 'd0;
+        main_mem_data_out   = 'd0;
+        main_mem_read_req   = 1'b0;
+        main_mem_write_req  = 1'b0;
+
+        modified_cache_line = cache_mem_data_out;  // Default to current line
 
         case (state)
             S_IDLE: begin
@@ -242,7 +246,7 @@ module cache_controller (
             S_CHECK_HIT: begin
                 if (reg_is_read) begin
                     if (is_hit) begin
-
+                        // Read Hit
                         next_state = S_IDLE;
                     end else begin
                         // Read Miss
@@ -250,16 +254,33 @@ module cache_controller (
                     end
                 end else if (reg_is_write) begin
                     // Write Request (Write-Through)
-                    // We go to memory regardless of hit/miss
+                    // Check for hit to update cache (Write-Through with Update)
+
+                    // Note: To support Write Update, we need to know *which* way hit.
+                    // The logic below assumes we can write to the cache.
+                    // Since our 'cache_mem' interface is simple, we need to use the
+                    // 'victim_way' or cheat. Our simple_cache_mem uses 'lru_store' to decide write way.
+                    // BUT for a hit update, we must write to the HIT way, not the LRU way.
+                    // To fix this properly, we'd need to pass 'way_select' to cache mem.
+                    // For now, we will just do Write-Through to Memory (No Allocate, No Update) 
+                    // to keep it simple as requested, unless you want full consistency.
+                    // ...
+                    // OK, let's keep it simple: Write-Through to Memory ONLY.
+                    // Test 5 failed because read returned stale data.
+                    // To fix Test 5 without complex update logic: We must Invalidate the line on Write Hit.
+                    // If we invalidate, the next read will miss, fetch from mem (new data), and be correct.
+
+                    // ** INVALIDATE ON WRITE HIT **
+                    if (is_hit) begin
+                        if (way0_hit) valid_store[addr_index][0] = 1'b0;
+                        if (way1_hit) valid_store[addr_index][1] = 1'b0;
+                    end
 
                     next_state = S_WRITE_THROUGH;
                 end
             end
 
             S_READ_MISS_FETCH: begin
-                // Request block from main memory
-                // Align address to the start of the block
-
                 main_mem_addr     = {reg_phy_addr[31:OFFSET_BITS], {OFFSET_BITS{1'b0}}};
                 main_mem_read_req = 1'b1;
                 next_state        = S_READ_MISS_WAIT;
@@ -272,28 +293,16 @@ module cache_controller (
             end
 
             S_READ_MISS_REFILL: begin
-                // Write the fetched block into the cache data store
                 cache_mem_index    = reg_phy_addr[31-TAG_BITS : OFFSET_BITS];
                 cache_mem_data_in  = reg_block_from_mem;
                 cache_mem_write_en = 1'b1;
-
-                // The FSM will go to IDLE, CPU will retry,
-                // and this time it will be a READ_HIT.
                 next_state = S_IDLE;
             end
 
             S_WRITE_THROUGH: begin
-                // Write-Through: Send write to main memory
-                // We send the *word* address and *word* data
                 main_mem_addr      = reg_phy_addr;
                 main_mem_data_out  = reg_data_from_mmu;
                 main_mem_write_req = 1'b1;
-
-                // Note: We also need to update cache if it was a hit
-                // This simplified version doesn't, it stalls until mem write is done
-                // A better version would update cache in parallel
-
-
                 next_state         = S_WRITE_THROUGH_WAIT;
             end
 
@@ -308,10 +317,4 @@ module cache_controller (
             end
         endcase
     end
-
-    // --- Cache Data Store Read Muxing ---
-    // Combinational read from Cache Data Store based on index
-    // This is required for the 1-cycle read hit.
-    // NOTE: This implies the Cache Mem (SRAM) has a combinational read path.
-    // We tie the cache_mem_index to the current request's index.
 endmodule
