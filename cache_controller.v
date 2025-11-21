@@ -65,9 +65,9 @@ module cache_controller (
 
 
     // --- Interface to Cache Memory ---
-    output wire way0_hit,
-    output wire way1_hit,
-    output wire lru_bit,
+    //output wire way0_hit,
+    //output wire way1_hit,
+    //output wire lru_bit,
     output reg[5:0]  cache_mem_index,  // Index to read/write in cache (6 bits cause 64 sets for current Block and cache size)
     output reg [511:0] cache_mem_data_in,  // Data block to write to cache
     output reg cache_mem_write_en,  // Write enable for cache

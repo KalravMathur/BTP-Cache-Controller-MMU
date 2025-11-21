@@ -210,10 +210,11 @@ module tb_cache_controller_unit;
     endtask
 
     task wait_for_idle;
+        // FIX: Moved declaration to the top of the task for Verilog compatibility
+        integer timeout;
         begin
             // Simply wait until ready_stall is 0.
             // We add a timeout just in case it gets stuck to avoid infinite loops.
-            integer timeout;
             timeout = 0;
             while (ready_stall == 1 && timeout < 100) begin
                 @(posedge clk);
