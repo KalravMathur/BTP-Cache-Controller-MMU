@@ -59,7 +59,7 @@ module tb_cache_controller_unit;
     );
 
     // --- Instantiate Simple Cache Memory ---
-    simple_cache_mem l1_cache (
+    cache_mem l1_cache (
         .clk(clk),
         .index(cache_index),
         .data_in(cache_data_write),
