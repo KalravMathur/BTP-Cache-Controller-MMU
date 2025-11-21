@@ -23,15 +23,18 @@ module tb_cache_controller_unit;
 
     // Main Memory Interface
     wire [31:0] main_mem_addr;
-    wire [31:0] main_mem_data_out;  // Data FROM controller TO main mem
+    wire [31:0] main_mem_data_out;
     wire main_mem_read_req;
     wire main_mem_write_req;
-    reg [511:0] main_mem_data_in;  // Data FROM main mem TO controller
+    reg [511:0] main_mem_data_in;
     reg main_mem_ready;
+
+    // Capture flag for verification
+    reg was_hit;
 
     // --- Clock Generation ---
     initial clk = 0;
-    always #5 clk = ~clk;  // 10ns period
+    always #5 clk = ~clk;
 
     // --- Instantiate Cache Controller (DUT) ---
     cache_controller dut (
@@ -44,12 +47,10 @@ module tb_cache_controller_unit;
         .data_to_cpu(data_to_cpu),
         .hit_miss(hit_miss),
         .ready_stall(ready_stall),
-        // Cache Mem Interface
         .cache_mem_index(cache_index),
         .cache_mem_data_in(cache_data_write),
         .cache_mem_write_en(cache_write_en),
         .cache_mem_data_out(cache_data_read),
-        // Main Mem Interface
         .main_mem_addr(main_mem_addr),
         .main_mem_data_out(main_mem_data_out),
         .main_mem_read_req(main_mem_read_req),
@@ -59,7 +60,7 @@ module tb_cache_controller_unit;
     );
 
     // --- Instantiate Simple Cache Memory ---
-    cache_mem l1_cache (
+    simple_cache_mem l1_cache (
         .clk(clk),
         .index(cache_index),
         .data_in(cache_data_write),
@@ -72,13 +73,13 @@ module tb_cache_controller_unit;
 
     // --- Main Test Sequence ---
     initial begin
-        // 1. Initialize
         $display("\n=== Starting Simple Cache Controller Test ===");
         rst_n = 0;
         read_mem = 0;
         write_mem = 0;
         phy_addr = 0;
         data_from_cpu = 0;
+        was_hit = 0;
 
         // 2. Reset
         #20 rst_n = 1;
@@ -98,7 +99,7 @@ module tb_cache_controller_unit;
         // -------------------------------------------------------
         $display("\n--- Test 2: Read Request @ 0x1000 (Expect HIT) ---");
         send_read_req(32'h00001000);
-        // For a hit, it's fast. Wait 2 cycles to settle.
+        // Short wait for hit
         #20;
         print_status("Test 2 Result");
 
@@ -119,18 +120,19 @@ module tb_cache_controller_unit;
         print_status("Test 4 Result");
 
         // -------------------------------------------------------
-        // TEST 5: Read Hit Check Data (Addr: 0x2000)
+        // TEST 5: Read Request @ 0x2000 (Check Data)
+        // Since we invalidated on write hit, this should be a MISS and fetch new data.
         // -------------------------------------------------------
         $display("\n--- Test 5: Read Request @ 0x2000 (Check Data) ---");
         send_read_req(32'h00002000);
-        #20;
+        wait_for_idle();
         print_status("Test 5 Result");
 
         $display("\n=== Test Complete ===");
         $finish;
     end
 
-    // --- Main Memory Simulation Logic (Robust State Machine) ---
+    // --- Main Memory Simulation Logic ---
     reg [2:0] mm_state;
     localparam MM_IDLE = 0;
     localparam MM_READ_WAIT = 1;
@@ -146,7 +148,6 @@ module tb_cache_controller_unit;
     end
 
     always @(posedge clk) begin
-        // Default
         main_mem_ready <= 0;
 
         case (mm_state)
@@ -165,21 +166,26 @@ module tb_cache_controller_unit;
 
             MM_READ_WAIT: begin
                 mm_counter <= mm_counter + 1;
-                if (mm_counter >= 3) begin  // Wait 3 cycles (30ns)
-                    main_mem_data_in <= {16{main_mem_addr}};  // Dummy data
+                if (mm_counter >= 3) begin
+                    // Provide simple unique data for verification
+                    main_mem_data_in <= {16{main_mem_addr}};
+
+                    // Specific data for Test 5 verification
+                    if (main_mem_addr == 32'h00002000) main_mem_data_in <= {16{32'hDEADBEEF}};
+
                     mm_state <= MM_DONE;
                 end
             end
 
             MM_WRITE_WAIT: begin
                 mm_counter <= mm_counter + 1;
-                if (mm_counter >= 3) begin  // Wait 3 cycles
+                if (mm_counter >= 3) begin
                     mm_state <= MM_DONE;
                 end
             end
 
             MM_DONE: begin
-                main_mem_ready <= 1;  // Assert ready for 1 cycle
+                main_mem_ready <= 1;
                 $display("[MainMem] Ready asserted.");
                 mm_state <= MM_IDLE;
             end
@@ -192,8 +198,13 @@ module tb_cache_controller_unit;
         begin
             phy_addr = addr;
             read_mem = 1;
-            @(posedge clk);  // Wait for clock edge
-            #1;  // Small hold
+            // Wait one clock for signal to latch
+            @(posedge clk);
+            // Wait small delay for combinational logic to settle
+            #1;
+            // ** CAPTURE HIT/MISS NOW **
+            // This captures the status *during* the request phase, which correctly identifies a miss
+            was_hit  = hit_miss;
             read_mem = 0;
         end
     endtask
@@ -203,19 +214,18 @@ module tb_cache_controller_unit;
             phy_addr = addr;
             data_from_cpu = data;
             write_mem = 1;
-            @(posedge clk);  // Wait for clock edge
+            @(posedge clk);
             #1;
+            was_hit   = hit_miss;
             write_mem = 0;
         end
     endtask
 
     task wait_for_idle;
-        // FIX: Moved declaration to the top of the task for Verilog compatibility
         integer timeout;
         begin
-            // Simply wait until ready_stall is 0.
-            // We add a timeout just in case it gets stuck to avoid infinite loops.
             timeout = 0;
+            // Wait while stalled
             while (ready_stall == 1 && timeout < 100) begin
                 @(posedge clk);
                 timeout = timeout + 1;
@@ -223,14 +233,15 @@ module tb_cache_controller_unit;
 
             if (timeout == 100) $display("WARNING: wait_for_idle timed out!");
 
-            #5;  // Extra buffer
+            #5;
         end
     endtask
 
     task print_status(input [100*8:1] label);
         begin
-            $display("%s -> Hit: %b | Data Out: %h | Stall: %b | State: %0d", label, hit_miss,
-                     data_to_cpu, ready_stall, dut.state);
+            // Display the captured 'was_hit' status
+            $display("%s -> Hit(Captured): %b | Data Out: %h | Stall: %b", label, was_hit,
+                     data_to_cpu, ready_stall);
         end
     endtask
 

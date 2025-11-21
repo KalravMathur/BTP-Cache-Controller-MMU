@@ -42,8 +42,8 @@ module cache_mem (
     integer i;
     initial begin
         for (i = 0; i < 64; i = i + 1) begin
-            way0[i] = 512'd0;
-            way1[i] = 512'd0;
+            way0[i] = 512'd1;
+            way1[i] = 512'd1;
         end
     end
 
