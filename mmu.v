@@ -43,231 +43,103 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-`include "MMU_declarations.v"
 
-module simple_mmu (
-    input clk,
-    input rst_n,
+`include "mmu_params.vh"
 
-    // MMU Request Interface (from CPU)
-    input                    mmu_req_valid,
-    input  [`ADDR_WIDTH-1:0] mmu_req_va,
-    output                   mmu_req_ready,  // combinational
+module mmu_simple_top (
+    input wire clk,
+    input wire rst_n,
 
-    // MMU Response Interface (to CPU)
-    output reg                   mmu_resp_valid,
-    output reg [`ADDR_WIDTH-1:0] mmu_resp_pa,
-    output reg [            1:0] mmu_resp_status,
-    input                        mmu_resp_ready
+    // =================================================================
+    // CPU Interface (Input request and Stall output)
+    // =================================================================
+    input wire [ADDR_WIDTH-1:0] cpu_req_va,
+    input wire                  cpu_req_valid,
+
+    // EXPLICIT STALL SIGNAL: Tells CPU pipeline to freeze
+    output reg                  cpu_stall,
+
+    // =================================================================
+    // Cache Controller Interface (Physical Address Output)
+    // =================================================================
+    output reg [ADDR_WIDTH-1:0] cache_pa,     // Physical address for tag comparison
+    output reg [1:0]            mmu_status,   // Status for cache controller
+    output reg                  mmu_pa_valid, // Indicates cache_pa is valid right now
+
+    // =================================================================
+    // Simplified PTW / Testbench Interface
+    // =================================================================
+    // Signal to outside world (Testbench) that a miss occurred
+    output reg                  ptw_miss_detected,
+
+    // "Backdoor" refill interface for the Testbench to act as memory
+    input wire                  tb_refill_en,
+    input wire [VPN_BITS-1:0]   tb_refill_vpn,
+    input wire [PFN_BITS-1:0]   tb_refill_pfn
 );
 
-  // --- FSM States ---
-  localparam S_IDLE = 2'b00;
-  localparam S_PTW_LOOKUP = 2'b01;
-  localparam S_UPDATE_TLB = 2'b10;
+    // --- Internal Signals ---
+    wire [VPN_BITS-1:0] current_vpn;
+    wire [OFFSET_BITS-1:0] current_offset;
 
-  reg [1:0] current_state, next_state;
+    // Split address into VPN and Offset
+    assign current_vpn = cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS];
+    assign current_offset = cpu_req_va[OFFSET_BITS-1:0];
 
-  // --- Registers for FSM Data ---
-  reg     [     `ADDR_WIDTH-1:0] r_current_va;
-  reg     [      `VPN_WIDTH-1:0] r_current_vpn;
+    // TLB Signals
+    wire tlb_hit;
+    wire [PFN_BITS-1:0] tlb_hit_pfn;
 
-  // --- Embedded TLB Data Structures ---
-  reg     [      `VPN_WIDTH-1:0] tlb_vpn       [`NUM_TLB_ENTRIES-1:0];
-  reg     [      `PFN_WIDTH-1:0] tlb_pfn       [`NUM_TLB_ENTRIES-1:0];
-  reg                            tlb_valid     [`NUM_TLB_ENTRIES-1:0];
-  // Small LRU counters (0=most recent). For 4 entries, 2 bits are enough.
-  reg     [`TLB_INDEX_WIDTH-1:0] tlb_lru       [`NUM_TLB_ENTRIES-1:0];
+    // --- Instantiate Simplified TLB ---
+    tlb_simple u_tlb (
+        .clk            (clk),
+        .rst_n          (rst_n),
+        // Lookup path (from CPU input)
+        .lookup_vpn     (current_vpn),
+        .lookup_hit     (tlb_hit),
+        .lookup_pfn     (tlb_hit_pfn),
+        // Refill path (from Testbench inputs)
+        .refill_en      (tb_refill_en),
+        .refill_vpn     (tb_refill_vpn),
+        .refill_pfn     (tb_refill_pfn)
+    );
 
-  // Loop indices
-  integer                        i;
 
-  // --- TLB Lookup (fully associative) ---
-  reg                            tlb_hit;
-  reg     [`TLB_INDEX_WIDTH-1:0] tlb_hit_idx;
-  reg     [      `PFN_WIDTH-1:0] tlb_hit_pfn;
+    // =================================================================
+    // Output Logic (Combinational)
+    // =================================================================
+    always @(*) begin
+        // 1. Set Default Outputs
+        mmu_pa_valid = 1'b0;
+        cache_pa = {ADDR_WIDTH{1'b0}};
+        mmu_status = STATUS_OK;
+        ptw_miss_detected = 1'b0;
+        // Default: Do not stall
+        cpu_stall = 1'b0;
 
-  always @(*) begin
-    tlb_hit     = 1'b0;
-    tlb_hit_idx = {`TLB_INDEX_WIDTH{1'b0}};
-    tlb_hit_pfn = {`PFN_WIDTH{1'b0}};
-
-    for (i = 0; i < `NUM_TLB_ENTRIES; i = i + 1) begin
-      if (tlb_valid[i] && (tlb_vpn[i] == r_current_vpn) && !tlb_hit) begin
-        tlb_hit     = 1'b1;
-        tlb_hit_idx = i[`TLB_INDEX_WIDTH-1:0];
-        tlb_hit_pfn = tlb_pfn[i];
-      end
-    end
-  end
-
-  // --- LRU Victim Selection ---
-  reg [`TLB_INDEX_WIDTH-1:0] lru_victim_idx;
-  reg [`TLB_INDEX_WIDTH-1:0] max_lru_counter;
-
-  always @(*) begin
-    lru_victim_idx  = 0;
-    max_lru_counter = tlb_lru[0];
-    for (i = 1; i < `NUM_TLB_ENTRIES; i = i + 1) begin
-      if (tlb_lru[i] > max_lru_counter) begin
-        max_lru_counter = tlb_lru[i];
-        lru_victim_idx  = i[`TLB_INDEX_WIDTH-1:0];
-      end
-    end
-  end
-
-  // --- Page Table Walker (PTW) Mock ---
-  localparam PTW_LOOKUP_LATENCY = 3;
-  reg [PTW_LOOKUP_LATENCY-1:0] ptw_timer;
-  reg                          ptw_active;
-  reg [        `PFN_WIDTH-1:0] ptw_fetched_pfn;
-  reg                          ptw_fetched_pte_valid;
-
-  // --- Request ready is combinational: accept when idle and no pending resp ---
-  assign mmu_req_ready = (current_state == S_IDLE) && (!mmu_resp_valid);
-
-  // --- Next-state logic (combinational) ---
-  always @(*) begin
-    next_state = current_state;
-    case (current_state)
-      S_IDLE: begin
-        if (mmu_req_valid && mmu_req_ready) begin
-          if (tlb_hit) next_state = S_IDLE;  // respond immediately in seq block
-          else next_state = S_PTW_LOOKUP;  // start PTW
-        end
-      end
-
-      S_PTW_LOOKUP: begin
-        if (ptw_timer == PTW_LOOKUP_LATENCY - 1) next_state = S_UPDATE_TLB;
-        else next_state = S_PTW_LOOKUP;
-      end
-
-      S_UPDATE_TLB: begin
-        next_state = S_IDLE;
-      end
-    endcase
-  end
-
-  // --- Sequential block ---
-  always @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
-      current_state         <= S_IDLE;
-      r_current_va          <= {`ADDR_WIDTH{1'b0}};
-      r_current_vpn         <= {`VPN_WIDTH{1'b0}};
-      mmu_resp_valid        <= 1'b0;
-      mmu_resp_pa           <= {`ADDR_WIDTH{1'b0}};
-      mmu_resp_status       <= `MMU_STATUS_HIT;
-
-      ptw_timer             <= {PTW_LOOKUP_LATENCY{1'b0}};
-      ptw_active            <= 1'b0;
-      ptw_fetched_pfn       <= {`PFN_WIDTH{1'b0}};
-      ptw_fetched_pte_valid <= 1'b0;
-
-      for (i = 0; i < `NUM_TLB_ENTRIES; i = i + 1) begin
-        tlb_vpn[i]   <= {`VPN_WIDTH{1'b0}};
-        tlb_pfn[i]   <= {`PFN_WIDTH{1'b0}};
-        tlb_valid[i] <= 1'b0;
-        tlb_lru[i]   <= {`TLB_INDEX_WIDTH{1'b0}};
-      end
-    end else begin
-      // State update
-      current_state <= next_state;
-
-      // Clear resp if taken
-      if (mmu_resp_valid && mmu_resp_ready) mmu_resp_valid <= 1'b0;
-
-      case (current_state)
-        S_IDLE: begin
-          ptw_active <= 1'b0;
-          ptw_timer  <= {PTW_LOOKUP_LATENCY{1'b0}};
-
-          if (mmu_req_valid && mmu_req_ready) begin
-            r_current_va  <= mmu_req_va;
-            r_current_vpn <= mmu_req_va[`ADDR_WIDTH-1:`PAGE_OFFSET_WIDTH];
-
+        // 2. Evaluation Logic
+        // Only process if CPU is making a valid request
+        if (cpu_req_valid) begin
             if (tlb_hit) begin
-              // TLB hit: respond this cycle
-              mmu_resp_pa     <= (tlb_hit_pfn << `PAGE_OFFSET_WIDTH)
-                                               | mmu_req_va[`PAGE_OFFSET_WIDTH-1:0];
-              mmu_resp_status <= `MMU_STATUS_HIT;
-              mmu_resp_valid <= 1'b1;
-
-              // LRU: hit entry to 0, increment others
-              for (i = 0; i < `NUM_TLB_ENTRIES; i = i + 1) begin
-                if (tlb_valid[i]) begin
-                  if (i[`TLB_INDEX_WIDTH-1:0] == tlb_hit_idx)
-                    tlb_lru[i] <= {`TLB_INDEX_WIDTH{1'b0}};
-                  else tlb_lru[i] <= tlb_lru[i] + 1'b1;
-                end
-              end
+                // --- TLB HIT ---
+                // Compose PA immediately for the cache controller
+                cache_pa = {tlb_hit_pfn, current_offset};
+                mmu_status = STATUS_OK;
+                // Tell Cache Controller the PA is valid
+                mmu_pa_valid = 1'b1;
+                // cpu_stall remains 0 (default)
             end else begin
-              // TLB miss: start PTW
-              ptw_active <= 1'b1;
-              ptw_timer  <= {PTW_LOOKUP_LATENCY{1'b0}};
+                // --- TLB MISS ---
+                // Signal the outside world that we need a refill
+                ptw_miss_detected = 1'b1;
+
+                // IMPORTANT: Explicitly stall the CPU.
+                // The CPU pipeline must freeze until this miss is resolved.
+                cpu_stall = 1'b1;
+
+                // mmu_pa_valid remains 0, so cache controller knows not to use the PA yet.
             end
-          end
         end
-
-        S_PTW_LOOKUP: begin
-          // simulate latency
-          if (ptw_timer < PTW_LOOKUP_LATENCY - 1) ptw_timer <= ptw_timer + 1'b1;
-
-          if (ptw_timer == PTW_LOOKUP_LATENCY - 1) begin
-            ptw_active <= 1'b0;
-
-            // Mock PTEs for small VPNs; others fault
-            case (r_current_vpn)
-              20'd0: begin
-                ptw_fetched_pfn <= 20'd10;
-                ptw_fetched_pte_valid <= 1'b1;
-              end
-              20'd1: begin
-                ptw_fetched_pfn <= 20'd11;
-                ptw_fetched_pte_valid <= 1'b1;
-              end
-              20'd2: begin
-                ptw_fetched_pfn <= 20'd12;
-                ptw_fetched_pte_valid <= 1'b1;
-              end
-              20'd3: begin
-                ptw_fetched_pfn <= 20'd13;
-                ptw_fetched_pte_valid <= 1'b1;
-              end
-              default: begin
-                ptw_fetched_pfn <= {`PFN_WIDTH{1'b0}};
-                ptw_fetched_pte_valid <= 1'b0;
-              end
-            endcase
-          end
-        end
-
-        S_UPDATE_TLB: begin
-          if (ptw_fetched_pte_valid) begin
-            // Install entry at LRU victim
-            tlb_vpn[lru_victim_idx]   <= r_current_vpn;
-            tlb_pfn[lru_victim_idx]   <= ptw_fetched_pfn;
-            tlb_valid[lru_victim_idx] <= 1'b1;
-            tlb_lru[lru_victim_idx]   <= {`TLB_INDEX_WIDTH{1'b0}};
-
-            // Increment others
-            for (i = 0; i < `NUM_TLB_ENTRIES; i = i + 1) begin
-              if (i != lru_victim_idx && tlb_valid[i]) tlb_lru[i] <= tlb_lru[i] + 1'b1;
-            end
-
-            // Respond (resolved miss)
-            mmu_resp_pa     <= (ptw_fetched_pfn << `PAGE_OFFSET_WIDTH)
-                                           | r_current_va[`PAGE_OFFSET_WIDTH-1:0];
-            mmu_resp_status <= `MMU_STATUS_MISS;
-            mmu_resp_valid <= 1'b1;
-          end else begin
-            // Page fault
-            mmu_resp_pa     <= {`ADDR_WIDTH{1'b0}};
-            mmu_resp_status <= `MMU_STATUS_PAGE_FAULT;
-            mmu_resp_valid  <= 1'b1;
-          end
-        end
-      endcase
     end
-  end
 
 endmodule
