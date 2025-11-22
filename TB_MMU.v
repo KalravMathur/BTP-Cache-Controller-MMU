@@ -42,9 +42,9 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
+// test
 
-
-`include "mmu_defines.v"
+`include "MMU_declarations.v"
 
 module simple_mmu_tb;
 
