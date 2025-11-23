@@ -1,0 +1,170 @@
+\documentclass[a4paper,12pt]{report}
+\usepackage{titlesec}
+\usepackage{amssymb} 
+\usepackage{graphicx} 
+\usepackage{geometry}
+\geometry{a4paper,left=25mm,right=25mm,top=30mm,bottom=30mm}
+\usepackage{cite}
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\centering}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge}
+
+\begin{document}
+\thispagestyle{empty}
+\begin{center}
+ \Huge{\textsc{Write your Project Title Here}}
+\end{center}
+%\vspace{0.5cm}
+\begin{center}
+ \large{(Monsoon 2025)}
+\end{center}
+\vspace{0.5cm}
+\begin{center}
+ \large{Submitted by}
+\end{center}
+\vspace{0.25cm}
+\begin{center}
+ \large{Student 1 Name (Roll No.)}\\
+ %if only one student is working on the project then delete the next two lines.
+ \vspace{0.25cm}
+ \large{Student 2 Name (Roll No.)}
+\end{center}
+ \vspace{0.25cm}
+\begin{center}
+ \large{Under Supervision\\ of}
+\end{center}
+\begin{center}
+ \large{Supervisor 1 Name}\\
+ \large{Department of Electrical Engineering}\\
+ % if two supervisors then delete the percentage sign from the below lines and add the details of the second supervisor
+ \vspace{0.25cm}
+ \large{Supervisor 2 Name}\\
+ \large{Department of Electrical Engineering}
+\end{center}
+\vspace{0.75cm}
+\begin{figure}[htbp]
+	\centering
+		\includegraphics[width=6in]{logo.jpg}	
+\end{figure}
+\pagebreak
+\begin{center}
+\huge{\textsc{Abstract}}
+\end{center}
+Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here.
+\pagebreak
+\tableofcontents
+\pagebreak
+\listoffigures
+\pagebreak
+\listoftables
+\pagebreak
+\chapter{Introduction}
+Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here.
+\section{Heading1:}
+Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here.
+\section{Heading2:}
+Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here.
+\subsection{Subheading 1:}
+Write subheading content here. Write subheading content here. Write subheading content here. Write subheading content here Write subheading content here\cite{p2}.
+\subsection{Subheading 2:}
+ Write subheading content here. Write subheading content here. Write subheading content here. Write subheading content here Write subheading content here  \cite{b1}. 
+\section{Heading 3:}
+Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. \cite{p1}. 
+\subsection{Subheading 1:}
+Write subheading content here. Write subheading content here. Write subheading content here. Write subheading content here Write subheading content here.
+\subsubsection{Sub-subheading 1:}
+Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here  \cite{w1}. 
+\subsubsection{Sub-subheading 2:}
+Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here.
+
+\chapter{Literature Survey}
+
+\section{Heading 1:}
+Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here \cite{p1,p2,b1, w1}. Parameter details is given in \ref{t1}.
+
+\begin{table}[ht]
+\centering
+\caption{Parameter Details}
+\vspace{0.2cm}
+\label{t1}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Name} & \textbf{Value} & \textbf{Name} & \textbf{Value} \\ \hline
+x             & 1              & y             & 2              \\ \hline
+z             & 3              & a             & 4              \\ \hline
+b             & 5              & c             & 6              \\ \hline
+d             & 7              & e             & 8              \\ \hline
+\end{tabular}
+\end{table}
+
+
+\begin{table}[ht]
+\centering
+\caption{Parameter Details 2}
+\vspace{0.2cm}
+\label{t2}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Name} & \textbf{Value} & \textbf{Name} & \textbf{Value} \\ \hline
+x             & 1              & y             & 2              \\ \hline
+z             & 3              & a             & 4              \\ \hline
+b             & 5              & c             & 6              \\ \hline
+d             & 7              & e             & 8              \\ \hline
+\end{tabular}
+\end{table}
+Parameter details is given in \ref{t2}.
+
+\chapter{Work Done}
+
+\section{Heading}
+Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. The Eqn. \ref{eq1} \& \ref{eq2} shows the carrier generation.
+\begin{equation}\label{eq1}
+g(t)= \frac{2 P(t,r)}{\pi \omega_{0}^2 h \nu_{opt}}
+\end{equation}
+\begin{equation}\label{eq2}
+n(t,r)=\frac{(1-R)\tau_{l}P_{0}WL}{\sqrt{2 \pi} h\nu_{opt} \omega_{0}^{2}} \left[1-e^{\left(-\frac{2 r^2}{\omega_{0}^2}\right)}\right]\left[1-e^{(-\alpha d)}\right] e^{\left(\frac{\tau_{l}^2}{8 \tau_{c}^2}-\frac{t}{\tau_{c}}\right)}
+\end{equation}
+\ Fig. \ref{f1} shows the distribution of the data.
+\begin{figure}[ht]
+\centering
+\includegraphics[width=3in]{image11.png}
+\caption{Data distribution}
+\label{f1}
+%\vspace{-0.5cm}
+\end{figure}
+ \\Fig. \ref{f2} \& \ref{f3} show the distribution of the data.
+\begin{figure}[ht]
+  \centering
+  \begin{minipage}[b]{0.49\textwidth}
+  \centering
+    \includegraphics[width=1\textwidth]{image22.png}
+    \caption{Image caption here}
+    \label{f2}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.49\textwidth}
+  \centering
+    \includegraphics[width=1\textwidth]{image23.png}
+    \caption{image caption here}
+    \label{f3}
+  \end{minipage}
+\end{figure}
+
+\chapter{Future Work}
+Write future work here. Write future work here. Write future work here. Write future work here. Write future work here. Write future work here. Write future work here. 
+\section{Future Objectives}
+Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. 
+\begin{enumerate}
+    \item Goal 1
+    \item Goal 2
+    \item Goal 3
+    \item Goal 4
+\end{enumerate}
+
+\pagebreak
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{IEEEtran}
+\bibliography{reference}
+
+\end{document}
