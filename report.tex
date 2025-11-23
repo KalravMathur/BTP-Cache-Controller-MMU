@@ -1,57 +1,95 @@
 \documentclass[a4paper,12pt]{report}
-\usepackage{titlesec}
-\usepackage{amssymb} 
-\usepackage{graphicx} 
+\usepackage{amssymb}
+\usepackage{graphicx}
 \usepackage{geometry}
-\geometry{a4paper,left=25mm,right=25mm,top=30mm,bottom=30mm}
-\usepackage{cite}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{listings} % Essential for code snippets
+\usepackage{xcolor}   % Required for code highlighting
+\usepackage{float}    % Better figure placement
+\usepackage{caption}
+\usepackage{subcaption}
 \usepackage{titlesec}
+\usepackage{cite}
+
+% Page Geometry
+\geometry{a4paper,left=25mm,right=25mm,top=30mm,bottom=30mm}
+
+% Chapter Title Formatting
 \titleformat{\chapter}[display]
   {\normalfont\huge\bfseries\centering}
   {\chaptertitlename\ \thechapter}{20pt}{\Huge}
 
+% Code Snippet Configuration
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
 \begin{document}
+
+% --- Title Page ---
 \thispagestyle{empty}
 \begin{center}
- \Huge{\textsc{Write your Project Title Here}}
+  \Huge{\textsc{Design and Implementation of a Memory Management Unit and Cache Controller in RTL}}
 \end{center}
 %\vspace{0.5cm}
 \begin{center}
- \large{(Monsoon 2025)}
+  \large{(Monsoon 2025)}
 \end{center}
 \vspace{0.5cm}
 \begin{center}
- \large{Submitted by}
+  \large{Submitted by}
 \end{center}
 \vspace{0.25cm}
 \begin{center}
- \large{Student 1 Name (Roll No.)}\\
- %if only one student is working on the project then delete the next two lines.
- \vspace{0.25cm}
- \large{Student 2 Name (Roll No.)}
+  \large{Kalrav Mathur (2210110338)}\\
+  \vspace{0.25cm}
+  \large{Akhil Sriram (2210110134)}
 \end{center}
  \vspace{0.25cm}
 \begin{center}
- \large{Under Supervision\\ of}
+  \large{Under Supervision\\ of}
 \end{center}
 \begin{center}
- \large{Supervisor 1 Name}\\
- \large{Department of Electrical Engineering}\\
- % if two supervisors then delete the percentage sign from the below lines and add the details of the second supervisor
- \vspace{0.25cm}
- \large{Supervisor 2 Name}\\
- \large{Department of Electrical Engineering}
+  \large{Dr. Venkatnarayan Hariharan}\\
+  \large{Department of Electrical Engineering}\\
 \end{center}
 \vspace{0.75cm}
 \begin{figure}[htbp]
-	\centering
-		\includegraphics[width=6in]{logo.jpg}	
+    \centering
+    % Ensure 'logo.jpg' exists in the directory or comment out this line
+    \includegraphics[width=4in]{logo.jpg}    
 \end{figure}
 \pagebreak
+
+% --- Abstract ---
 \begin{center}
 \huge{\textsc{Abstract}}
 \end{center}
-Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here. Write your project abstract here.
+This project presents the complete Register Transfer Level (RTL) design, implementation, and verification of a memory management subsystem, comprising a Translation Lookaside Buffer (TLB)-based Memory Management Unit (MMU) and a 2-Way Set-Associative Cache Controller. The system is engineered to address the ``memory wall'' bottleneck by providing high-speed virtual-to-physical address translation and efficient data caching. The design is implemented in Verilog-2001, emphasizing modularity to support future multi-level hierarchies. Key contributions include a robust Finite State Machine (FSM) for cache control, an invalidation-based coherence mechanism for Write-Through policies, and a novel script-driven verification environment. This environment parses human-readable instruction files (e.g., \texttt{R 0x1000}) to drive simulation scenarios, bridging the gap between architectural intent and RTL verification. Extensive simulations validate the correctness of the LRU replacement policy, hit/miss logic, and pipeline stall mechanisms under various load conditions.
+
 \pagebreak
 \tableofcontents
 \pagebreak
@@ -59,112 +97,185 @@ Write your project abstract here. Write your project abstract here. Write your p
 \pagebreak
 \listoftables
 \pagebreak
+
+% --- Chapter 1: Introduction ---
 \chapter{Introduction}
-Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here. Write introduction here.
-\section{Heading1:}
-Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here.
-\section{Heading2:}
-Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here.
-\subsection{Subheading 1:}
-Write subheading content here. Write subheading content here. Write subheading content here. Write subheading content here Write subheading content here\cite{p2}.
-\subsection{Subheading 2:}
- Write subheading content here. Write subheading content here. Write subheading content here. Write subheading content here Write subheading content here  \cite{b1}. 
-\section{Heading 3:}
-Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. Write heading content here. \cite{p1}. 
-\subsection{Subheading 1:}
-Write subheading content here. Write subheading content here. Write subheading content here. Write subheading content here Write subheading content here.
-\subsubsection{Sub-subheading 1:}
-Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here  \cite{w1}. 
-\subsubsection{Sub-subheading 2:}
-Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here. Write subsubheading content here.
+In modern computing, the performance gap between high-frequency processors and high-latency main memory (DRAM) necessitates sophisticated memory hierarchies. This project focuses on the hardware implementation of two critical components that bridge this gap: the Memory Management Unit (MMU) for virtual memory support and the Cache Controller for latency reduction.
 
-\chapter{Literature Survey}
+The system is designed as a Physically Indexed, Physically Tagged (PIPT) cache, implying that address translation occurs prior to cache access. While this serializes the lookup path, it eliminates aliasing issues common in virtual caches, ensuring robust data integrity across processes.
 
-\section{Heading 1:}
-Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here. Write literature survey here \cite{p1,p2,b1, w1}. Parameter details is given in \ref{t1}.
+\section{Motivation}
+The implementation of a cache controller from scratch provides invaluable insights into micro-architectural trade-offs. By developing the RTL for tag comparison, victim selection, and write policies, we gain a cycle-accurate understanding of how hardware handles memory requests. Furthermore, the addition of a script-driven testbench allows for the rapid prototyping of complex access patterns, simulating real-world program behavior better than static test vectors.
+
+\section{Project Objectives}
+The core objectives achieved in this project are:
+\begin{enumerate}
+    \item \textbf{RTL Implementation:} Development of synthesizable Verilog modules for the MMU and Cache Controller.
+    \item \textbf{FSM Control:} Implementation of a deterministic Finite State Machine to manage the cache life-cycle (Hit, Miss, Refill, Write-Through).
+    \item \textbf{Script-Driven Verification:} Creation of a flexible verification environment that reads memory access patterns from an external text file.
+    \item \textbf{Coherence Logic:} Implementation of cache line invalidation to maintain consistency between the cache and main memory during write operations.
+\end{enumerate}
+
+\section{Design Specifications}
+The system configuration is detailed in Table \ref{t1}.
 
 \begin{table}[ht]
 \centering
-\caption{Parameter Details}
+\caption{System Configuration Parameters}
 \vspace{0.2cm}
 \label{t1}
 \begin{tabular}{|l|l|l|l|}
 \hline
-\textbf{Name} & \textbf{Value} & \textbf{Name} & \textbf{Value} \\ \hline
-x             & 1              & y             & 2              \\ \hline
-z             & 3              & a             & 4              \\ \hline
-b             & 5              & c             & 6              \\ \hline
-d             & 7              & e             & 8              \\ \hline
+\textbf{Parameter} & \textbf{Value} & \textbf{Parameter} & \textbf{Value} \\ \hline
+Virtual Address Width & 32 bits & Physical Address Width & 32 bits \\ \hline
+Cache Size & 8 KB & Associativity & 2-way \\ \hline
+Block Size & 64 Bytes & Write Policy & Write-Through \\ \hline
+Page Size & 4 KB & Replacement Policy & 1-bit LRU \\ \hline
 \end{tabular}
 \end{table}
 
+% --- Chapter 2: Architecture ---
+\chapter{System Architecture and Design}
 
-\begin{table}[ht]
-\centering
-\caption{Parameter Details 2}
-\vspace{0.2cm}
-\label{t2}
-\begin{tabular}{|l|l|l|l|}
-\hline
-\textbf{Name} & \textbf{Value} & \textbf{Name} & \textbf{Value} \\ \hline
-x             & 1              & y             & 2              \\ \hline
-z             & 3              & a             & 4              \\ \hline
-b             & 5              & c             & 6              \\ \hline
-d             & 7              & e             & 8              \\ \hline
-\end{tabular}
-\end{table}
-Parameter details is given in \ref{t2}.
+\section{Overall Architecture}
+The memory subsystem operates as a pipeline. The CPU (simulated) issues a Virtual Address (VA). The MMU translates this VA into a Physical Address (PA) using its internal TLB or by stalling the CPU to walk the page tables (simulated delay). The PA is then forwarded to the Cache Controller, which checks its internal SRAMs for a hit or fetches data from Main Memory.
 
-\chapter{Work Done}
+\section{Memory Management Unit (MMU)}
+The MMU is responsible for address translation and protection. 
+\subsection{Translation Lookaside Buffer (TLB)}
+The core of the MMU is a fully associative TLB (\texttt{tlb\_simple.v}). A fully associative structure was chosen to maximize the hit rate for the small number of entries (4 entries in the current implementation). 
+\begin{itemize}
+    \item \textbf{Lookup:} The incoming Virtual Page Number (VPN) is compared against all valid tags in parallel.
+    \item \textbf{Refill:} On a miss, the \texttt{ptw\_miss\_detected} signal initiates a page table walk. The testbench simulates the retrieval of the Physical Frame Number (PFN), which is then written into the TLB using a Round-Robin replacement pointer.
+\end{itemize}
 
-\section{Heading}
-Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. Write work done here. The Eqn. \ref{eq1} \& \ref{eq2} shows the carrier generation.
-\begin{equation}\label{eq1}
-g(t)= \frac{2 P(t,r)}{\pi \omega_{0}^2 h \nu_{opt}}
+\section{Cache Controller Design}
+The Cache Controller manages the 8KB data store and the tag arrays. It is designed with modularity in mind, separating the control logic (FSM) from the memory arrays.
+
+\subsection{Finite State Machine (FSM)}
+A robust 7-state FSM governs the controller's operation:
+\begin{itemize}
+    \item \textbf{S\_IDLE:} Default state, waiting for \texttt{read\_mem} or \texttt{write\_mem} signals.
+    \item \textbf{S\_CHECK\_HIT:} Performs tag comparison. If \texttt{is\_hit} is high, data is returned immediately.
+    \item \textbf{S\_READ\_MISS\_FETCH/WAIT:} On a miss, these states assert \texttt{main\_mem\_read\_req} and wait for the \texttt{main\_mem\_ready} handshake.
+    \item \textbf{S\_READ\_MISS\_REFILL:} Updates the cache SRAM with the new block, updates the Tag Store, and flips the LRU bit.
+    \item \textbf{S\_WRITE\_THROUGH:} Handles write requests by forwarding them to main memory.
+\end{itemize}
+
+\subsection{Cache Addressing}
+The 32-bit address is decomposed based on the cache geometry:
+\begin{equation}
+\text{Offset} = \log_2(64) = 6 \text{ bits}
 \end{equation}
-\begin{equation}\label{eq2}
-n(t,r)=\frac{(1-R)\tau_{l}P_{0}WL}{\sqrt{2 \pi} h\nu_{opt} \omega_{0}^{2}} \left[1-e^{\left(-\frac{2 r^2}{\omega_{0}^2}\right)}\right]\left[1-e^{(-\alpha d)}\right] e^{\left(\frac{\tau_{l}^2}{8 \tau_{c}^2}-\frac{t}{\tau_{c}}\right)}
+\begin{equation}
+\text{Index} = \log_2\left(\frac{8192}{64 \times 2}\right) = 6 \text{ bits}
 \end{equation}
-\ Fig. \ref{f1} shows the distribution of the data.
-\begin{figure}[ht]
-\centering
-\includegraphics[width=3in]{image11.png}
-\caption{Data distribution}
-\label{f1}
-%\vspace{-0.5cm}
-\end{figure}
- \\Fig. \ref{f2} \& \ref{f3} show the distribution of the data.
-\begin{figure}[ht]
-  \centering
-  \begin{minipage}[b]{0.49\textwidth}
-  \centering
-    \includegraphics[width=1\textwidth]{image22.png}
-    \caption{Image caption here}
-    \label{f2}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.49\textwidth}
-  \centering
-    \includegraphics[width=1\textwidth]{image23.png}
-    \caption{image caption here}
-    \label{f3}
-  \end{minipage}
-\end{figure}
+\begin{equation}
+\text{Tag} = 32 - 6 - 6 = 20 \text{ bits}
+\end{equation}
 
-\chapter{Future Work}
-Write future work here. Write future work here. Write future work here. Write future work here. Write future work here. Write future work here. Write future work here. 
-\section{Future Objectives}
-Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. Write future goals here. 
+% --- Chapter 3: Implementation Details ---
+\chapter{Implementation Details}
+
+\section{Script-Driven Verification Environment}
+A unique feature of this project is the implementation of a file-based instruction reader in the testbench. Instead of hardcoding test vectors, the testbench uses Verilog file I/O system tasks (\texttt{\$fopen}, \texttt{\$fscanf}) to read a text file (\texttt{instructions.txt}) containing memory operations.
+
+\textbf{Instruction Format:}
+The parser supports a simple mnemonic-based format:
+\begin{itemize}
+    \item \texttt{R <Address>}: Perform a Read at the hex address.
+    \item \texttt{W <Address> <Data>}: Write the hex data to the hex address.
+\end{itemize}
+
+\textbf{Example \texttt{instructions.txt}:}
+\begin{verbatim}
+R 0x1000      // Read from 0x1000 (Expect Miss)
+W 0x2000 A    // Write 0xA to 0x2000
+R 0x2000      // Read back (Expect Hit with data 0xA)
+R 0x4000      // Read new address (Expect Miss)
+\end{verbatim}
+
+This approach allows for the rapid creation of complex test scenarios (e.g., thrashing a specific set to test LRU logic) without recompiling the Verilog code, significantly speeding up the verification process.
+
+\section{Modularity and Scalability}
+The design explicitly separates the **Control Plane** (FSM) from the **Data Plane** (SRAM arrays). 
+\begin{lstlisting}[language=Verilog, caption=Modular Interface Definition]
+// Interface to Cache Memory (Data Plane)
+output reg[5:0]  cache_mem_index,  
+output reg [511:0] cache_mem_data_in,
+output reg cache_mem_write_en,  
+input wire [511:0] cache_mem_data_out
+\end{lstlisting}
+By defining these distinct interfaces, the underlying memory implementation can be swapped (e.g., from register arrays to BRAMs on an FPGA) without modifying the complex FSM logic. This also prepares the architecture for a multi-level hierarchy, where the "Main Memory" interface can simply be connected to an L2 Cache Controller.
+
+\section{Coherence and Invalidation Logic}
+During the implementation of the Write-Through policy, we observed a potential data inconsistency. Since our design does not allocate a cache line on a write miss (No-Write-Allocate), and simply writes to main memory, a subsequent read might return stale data if the line was already present in the cache but not updated.
+
+To resolve this, we implemented an **Invalidation Protocol**. On any Write Hit, the controller explicitly invalidates the matching cache line.
+
+\begin{lstlisting}[language=Verilog, caption=Invalidation Logic in Verilog]
+// Invalidate cache line on Write Hit
+if (state == S_CHECK_HIT && is_hit && reg_is_write) begin
+     if (way0_hit) valid_store[addr_index][0] <= 1'b0;
+     if (way1_hit) valid_store[addr_index][1] <= 1'b0;
+end
+\end{lstlisting}
+This forces the next read to the same address to result in a Cache Miss, triggering a fetch from main memory which retrieves the updated data, thus ensuring coherence.
+
+% --- Chapter 4: Observations ---
+\chapter{Simulation Observations and Analysis}
+
+\section{Simulation Environment}
+The design was simulated using **Synopsys VCS** in a Linux environment. The waveform analysis was conducted using Verdi.
+
+\section{Key Factual Observations}
+Several critical behaviors were observed and corrected during the verification phase.
+
+\subsection{Observation 1: Reset Logic and Verilog Standards}
+Initial simulations showed that the internal storage arrays (\texttt{tag\_store}, \texttt{lru\_store}) remained in an unknown state (\texttt{X}) after reset. Analysis revealed this was due to the use of Verilog-2001 syntax (\texttt{integer i=0} inside a \texttt{for} loop) with a simulator defaulting to Verilog-1995 standards. The code was refactored to declare loop variables at the module scope, ensuring backward compatibility and successful initialization of all arrays to \texttt{0}.
+
+\subsection{Observation 2: Hit/Miss Signal Timing}
+An important timing behavior was observed regarding the \texttt{hit\_miss} output signal. The testbench initially checked this signal after the controller returned to the \texttt{IDLE} state. However, by that time, the cache had already refilled the missing line, causing the combinatorial logic to report a "Hit" for what was actually a "Miss" event.
+\textbf{Resolution:} The verification logic was updated to capture the \texttt{hit\_miss} signal state \textit{during} the request cycle (\texttt{@(posedge clk)}). This allows the testbench to accurately distinguish between a request that finds data (Hit) and one that triggers a fetch (Miss).
+
+\subsection{Observation 3: Cycle-Accurate Memory Latency}
+To realistically model the "memory wall," the testbench implementation of Main Memory avoids simple blocking delays (\texttt{\#30}). Instead, it implements a cycle-counter state machine.
+\begin{itemize}
+    \item When a read request is received, the memory model enters a \texttt{WAIT} state for 3 clock cycles.
+    \item During this time, the Cache Controller correctly asserts \texttt{ready\_stall}, freezing the CPU pipeline.
+    \item This confirms the controller's ability to handle variable-latency memory responses without data loss.
+\end{itemize}
+
+% --- Chapter 5: Conclusion ---
+\chapter{Conclusion and Future Work}
+
+\section{Conclusion}
+This project has successfully delivered a functional, synthesizable RTL implementation of a memory management subsystem. The design meets all functional requirements, demonstrating correct address translation, effective caching via the 2-way set-associative architecture, and robust handling of memory hazards via the FSM. The introduction of the script-driven verification environment and the modular design approach highlights a focus on scalability and verification efficiency, distinguishing this work from standard academic implementations.
+
+\section{Future Work}
+While the current system is functional, several enhancements are planned:
 \begin{enumerate}
-    \item Goal 1
-    \item Goal 2
-    \item Goal 3
-    \item Goal 4
+    \item \textbf{Write-Back Policy:} Implementing a "Dirty Bit" to support Write-Back, which will significantly reduce traffic to main memory by only writing modified data upon eviction.
+    \item \textbf{L2 Cache Integration:} Utilizing the modular interface to connect a Unified L2 Cache, creating a deeper memory hierarchy.
+    \item \textbf{FPGA Prototyping:} Synthesizing the design for a Xilinx Artix-7 FPGA to measure real-world resource utilization (LUTs/BRAMs) and timing performance.
 \end{enumerate}
 
 \pagebreak
 \addcontentsline{toc}{section}{References}
-\bibliographystyle{IEEEtran}
-\bibliography{reference}
+\begin{thebibliography}{99}
+
+\bibitem{sarangi2017computer}
+S. R. Sarangi, \textit{Computer Architecture and Organization}. McGraw-Hill Education, 2017.
+
+\bibitem{shakti_cache}
+SHAKTI Processor Project, "SHAKTI Cache Controller Implementation in Bluespec," \url{https://gitlab.com/shaktiproject/uncore/caches}.
+
+\bibitem{gfg_cache}
+Geeks for Geeks, "Cache Memory in Computer Organization," \url{https://www.geeksforgeeks.org/cache-memory-in-computer-organization/}.
+
+\bibitem{p2}
+Arora, Narain D et al., "Electron and hole mobilities in silicon as a function of concentration and temperature," \textit{IEEE Trans. Electron Devices}, vol. 29, no. 2, 1982.
+
+\end{thebibliography}
 
 \end{document}
