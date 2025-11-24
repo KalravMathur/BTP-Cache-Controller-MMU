@@ -110,7 +110,7 @@ module tb_cache_controller;
 
     initial begin
         mm_state = MM_IDLE;
-        for (k = 0; k < 4096; k = k + 1) mm_storage[k] = 0;
+        for (k = 0; k < 4096; k = k + 1) mm_storage[k] = 32'hffffffff;
     end
 
     always @(posedge clk) begin
@@ -135,9 +135,9 @@ module tb_cache_controller;
                 mm_cnt <= mm_cnt + 1;
                 if (mm_cnt >= 3) begin
                     // Use LATCHED address for read
-                    base_addr = (latched_addr[13:0] & 14'h3FC0) >> 2;
-                    for (k = 0; k < 16; k = k + 1) temp_blk[k*32+:32] = mm_storage[base_addr+k];
-                    main_mem_data_in <= temp_blk;
+                    //base_addr = (latched_addr[31:0] & 14'h3FC0) >> 2;
+                    // for (k = 0; k < 16; k = k + 1) temp_blk[k*32+:32] = mm_storage[base_addr+k];
+                    main_mem_data_in <= mm_storage[latched_addr];
                     mm_state <= MM_DONE;
                 end
             end
@@ -145,9 +145,9 @@ module tb_cache_controller;
                 mm_cnt <= mm_cnt + 1;
                 if (mm_cnt >= 3) begin
                     // Use LATCHED address and data for write
-                    mm_storage[latched_addr[13:0]>>2] <= latched_data_in;
-                    $display("    [MainMem] Stored %h at index %h", latched_data_in,
-                             latched_addr[13:0] >> 2);
+                    mm_storage[latched_addr[31:0]] <= latched_data_in;
+                    $display("    [MainMem] Stored %d at index %d", latched_data_in,
+                             latched_addr[31:0]);
                     mm_state <= MM_DONE;
                 end
             end
@@ -243,17 +243,17 @@ module tb_cache_controller;
         while (!$feof(
             file_handle
         )) begin
-            scan_result = $fscanf(file_handle, "%s %h", cmd, file_addr);
+            scan_result = $fscanf(file_handle, "%s %d", cmd, file_addr);
             if (scan_result >= 2) begin
                 instruction_count = instruction_count + 1;
                 $display("\n--- Instruction #%0d ---", instruction_count);
 
                 if (cmd == "R") begin
-                    $display("[TB] EXEC: READ  Addr: 0x%h", file_addr);
+                    $display("[TB] EXEC: READ  Addr: %d", file_addr);
                     execute_read(file_addr);
                 end else if (cmd == "W") begin
-                    scan_result = $fscanf(file_handle, "%h", file_data);
-                    $display("[TB] EXEC: WRITE Addr: 0x%h Data: 0x%h", file_addr, file_data);
+                    scan_result = $fscanf(file_handle, "%d", file_data);
+                    $display("[TB] EXEC: WRITE Addr: %d Data: %d", file_addr, file_data);
                     execute_write(file_addr, file_data);
                 end
             end
