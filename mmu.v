@@ -53,32 +53,32 @@ module mmu_simple_top (
     // CPU Interface (Input request and Stall output)
     // =================================================================
     input wire [`ADDR_WIDTH-1:0] cpu_req_va,
-    input wire                  cpu_req_valid,
+    input wire                   cpu_req_valid,
 
     // EXPLICIT STALL SIGNAL: Tells CPU pipeline to freeze
-    output reg                  cpu_stall,
+    output reg cpu_stall,
 
     // =================================================================
     // Cache Controller Interface (Physical Address Output)
     // =================================================================
     output reg [`ADDR_WIDTH-1:0] cache_pa,     // Physical address for tag comparison
-    output reg [1:0]            mmu_status,   // Status for cache controller
-    output reg                  mmu_pa_valid, // Indicates cache_pa is valid right now
+    output reg [            1:0] mmu_status,   // Status for cache controller
+    output reg                   mmu_pa_valid, // Indicates cache_pa is valid right now
 
     // =================================================================
     // Simplified PTW / Testbench Interface
     // =================================================================
     // Signal to outside world (Testbench) that a miss occurred
-    output reg                  ptw_miss_detected,
+    output reg ptw_miss_detected,
 
     // "Backdoor" refill interface for the Testbench to act as memory
-    input wire                  tb_refill_en,
-    input wire [`VPN_BITS -1:0]   tb_refill_vpn,
-    input wire [`PFN_BITS -1:0]   tb_refill_pfn
+    input wire                   tb_refill_en,
+    input wire [`VPN_WIDTH -1:0] tb_refill_vpn,
+    input wire [`PFN_WIDTH -1:0] tb_refill_pfn
 );
 
     // --- Internal Signals ---
-    wire [`VPN_BITS-1:0] current_vpn;
+    wire [  `VPN_WIDTH-1:0] current_vpn;
     wire [`OFFSET_BITS-1:0] current_offset;
 
     // Split address into VPN and Offset
@@ -87,20 +87,20 @@ module mmu_simple_top (
 
     // TLB Signals
     wire tlb_hit;
-    wire [`PFN_BITS-1:0] tlb_hit_pfn;
+    wire [`PFN_WIDTH-1:0] tlb_hit_pfn;
 
     // --- Instantiate Simplified TLB ---
     tlb_simple u_tlb (
-        .clk            (clk),
-        .rst_n          (rst_n),
+        .clk       (clk),
+        .rst_n     (rst_n),
         // Lookup path (from CPU input)
-        .lookup_vpn     (current_vpn),
-        .lookup_hit     (tlb_hit),
-        .lookup_pfn     (tlb_hit_pfn),
+        .lookup_vpn(current_vpn),
+        .lookup_hit(tlb_hit),
+        .lookup_pfn(tlb_hit_pfn),
         // Refill path (from Testbench inputs)
-        .refill_en      (tb_refill_en),
-        .refill_vpn     (tb_refill_vpn),
-        .refill_pfn     (tb_refill_pfn)
+        .refill_en (tb_refill_en),
+        .refill_vpn(tb_refill_vpn),
+        .refill_pfn(tb_refill_pfn)
     );
 
 

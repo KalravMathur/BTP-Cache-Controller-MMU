@@ -47,32 +47,32 @@
 module tb_mmu_simple_top;
 
     // --- Parameters ---
-    localparam CLK_PERIOD = 10; // 100 MHz clock
-    localparam MEM_LATENCY = 4; // Cycles to simulate PTW fetching data
+    localparam CLK_PERIOD = 10;  // 100 MHz clock
+    localparam MEM_LATENCY = 4;  // Cycles to simulate PTW fetching data
 
     // --- DUT Signals ---
-    reg clk;
-    reg rst_n;
+    reg                    clk;
+    reg                    rst_n;
 
     // CPU Interface
-    reg [`ADDR_WIDTH-1:0] cpu_req_va;
-    reg                  cpu_req_valid;
-    wire                 cpu_stall;
+    reg  [`ADDR_WIDTH-1:0] cpu_req_va;
+    reg                    cpu_req_valid;
+    wire                   cpu_stall;
 
     // Cache Controller Interface
     wire [`ADDR_WIDTH-1:0] cache_pa;
-    wire [1:0]            mmu_status;
-    wire                  mmu_pa_valid;
+    wire [            1:0] mmu_status;
+    wire                   mmu_pa_valid;
 
     // PTW / Testbench Interface
-    wire                  ptw_miss_detected;
-    reg                   tb_refill_en;
-    reg [`VPN_BITS-1:0]    tb_refill_vpn;
-    reg [`PFN_BITS-1:0]    tb_refill_pfn;
+    wire                   ptw_miss_detected;
+    reg                    tb_refill_en;
+    reg  [ `VPN_WIDTH-1:0] tb_refill_vpn;
+    reg  [ `PFN_WIDTH-1:0] tb_refill_pfn;
 
     // --- Testbench Memory Map (VPN -> PFN) ---
     // Simple mapping: PFN = VPN + some offset for easy checking
-    function [`PFN_BITS-1:0] get_expected_pfn(input [`VPN_BITS-1:0] vpn);
+    function [`PFN_WIDTH-1:0] get_expected_pfn(input [`VPN_WIDTH-1:0] vpn);
         get_expected_pfn = vpn + 20'hA0000;
     endfunction
 
@@ -96,7 +96,7 @@ module tb_mmu_simple_top;
     );
 
     // --- Clock Generation ---
-    always #(CLK_PERIOD/2) clk = ~clk;
+    always #(CLK_PERIOD / 2) clk = ~clk;
 
     // =================================================================
     // PTW Request Handler (Simulates Memory Subsystem)
@@ -115,17 +115,16 @@ module tb_mmu_simple_top;
             // Simulate Memory Latency
             repeat (MEM_LATENCY) @(posedge clk);
 
-            $display("[PTW] Fetch complete. Refilling TLB with VPN %h -> PFN %h",
-                     tb_refill_vpn, tb_refill_pfn);
+            $display("[PTW] Fetch complete. Refilling TLB with VPN %h -> PFN %h", tb_refill_vpn,
+                     tb_refill_pfn);
 
             // Assert refill signal for one clock cycle
             tb_refill_en <= 1'b1;
             @(posedge clk);
             tb_refill_en <= 1'b0;
-        end
-        // Default state for refill enable
+        end  // Default state for refill enable
         else if (!ptw_miss_detected) begin
-             tb_refill_en <= 1'b0;
+            tb_refill_en <= 1'b0;
         end
     end
 
@@ -165,7 +164,7 @@ module tb_mmu_simple_top;
         // Request 4: VA 0x40000 -> Should Miss (TLB now full)
         send_cpu_req(32'h0004_0000);
 
-        #(CLK_PERIOD*2);
+        #(CLK_PERIOD * 2);
 
         // ============================================================
         // Test Case 2: Hits on previously loaded entries
@@ -176,7 +175,7 @@ module tb_mmu_simple_top;
         // Re-Request 3: VA 0x30000 -> Should HIT immediately
         send_cpu_req(32'h0003_0000);
 
-        #(CLK_PERIOD*2);
+        #(CLK_PERIOD * 2);
 
         // ============================================================
         // Test Case 3: TLB Replacement (Round-Robin)
@@ -209,14 +208,14 @@ module tb_mmu_simple_top;
     // Task to drive CPU requests and wait for completion
     task send_cpu_req;
         input [ADDR_WIDTH-1:0] va;
-        reg [VPN_BITS-1:0] expected_vpn;
-        reg [PFN_BITS-1:0] expected_pfn;
+        reg [ VPN_WIDTH-1:0] expected_vpn;
+        reg [ PFN_WIDTH-1:0] expected_pfn;
         reg [ADDR_WIDTH-1:0] expected_pa;
         begin
             // Calculate expected values
             expected_vpn = va[`ADDR_WIDTH-1:`OFFSET_BITS];
             expected_pfn = get_expected_pfn(expected_vpn);
-            expected_pa = {expected_pfn, va[`OFFSET_BITS-1:0]};
+            expected_pa  = {expected_pfn, va[`OFFSET_BITS-1:0]};
 
             // Drive Request at positive edge
             @(posedge clk);
@@ -230,10 +229,10 @@ module tb_mmu_simple_top;
                 // It's a miss. We need to wait for the Stall to deassert.
                 $display("[CPU] Request VA %h: Stall detected (Miss). Waiting...", va);
                 // Keep request valid while stalled
-                wait(!cpu_stall);
+                wait (!cpu_stall);
                 $display("[CPU] Stall deasserted. Checking response...");
             end else if (mmu_pa_valid) begin
-                 $display("[CPU] Request VA %h: Immediate Hit detected.", va);
+                $display("[CPU] Request VA %h: Immediate Hit detected.", va);
             end
 
             // At this point, stall is low, verify the valid response
@@ -252,14 +251,15 @@ module tb_mmu_simple_top;
             // Ensure we are checking at a time when valid should be high and stall low
             if (mmu_pa_valid && !cpu_stall && mmu_status == STATUS_OK) begin
                 if (cache_pa == exp_pa) begin
-                     $display("[PASS] Got correctly translated PA: %h", cache_pa);
+                    $display("[PASS] Got correctly translated PA: %h", cache_pa);
                 end else begin
-                     $display("[FAIL] PA Mismatch! Expected %h, Got %h", exp_pa, cache_pa);
-                     $stop;
+                    $display("[FAIL] PA Mismatch! Expected %h, Got %h", exp_pa, cache_pa);
+                    $stop;
                 end
             end else begin
-                $display("[FAIL] Invalid response state! Valid=%b, Stall=%b, Status=%b (Expected 1, 0, OK)",
-                         mmu_pa_valid, cpu_stall, mmu_status);
+                $display(
+                    "[FAIL] Invalid response state! Valid=%b, Stall=%b, Status=%b (Expected 1, 0, OK)",
+                    mmu_pa_valid, cpu_stall, mmu_status);
                 $stop;
             end
         end
