@@ -27,21 +27,21 @@
 \definecolor{backcolour}{rgb}{0.95,0.95,0.92}
 
 \lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},
+    backgroundcolor=\color{backcolour},   
     commentstyle=\color{codegreen},
     keywordstyle=\color{magenta},
     numberstyle=\tiny\color{codegray},
     stringstyle=\color{codepurple},
     basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,
-    breaklines=true,
-    captionpos=b,
-    keepspaces=true,
-    numbers=left,
-    numbersep=5pt,
-    showspaces=false,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
     showstringspaces=false,
-    showtabs=false,
+    showtabs=false,                  
     tabsize=2
 }
 
@@ -79,8 +79,8 @@
 \vspace{0.75cm}
 \begin{figure}[htbp]
     \centering
-    % Placeholder for logo - ensure logo.jpg exists
-    % \includegraphics[width=4in]{logo.jpg}
+    % Ensure 'logo.jpg' exists in the directory or comment out this line
+    \includegraphics[width=4in]{logo.jpg}    
 \end{figure}
 \pagebreak
 
@@ -88,7 +88,7 @@
 \begin{center}
 \huge{\textsc{Abstract}}
 \end{center}
-This project presents the complete Register Transfer Level (RTL) design, implementation, and verification of a memory management subsystem, comprising a Translation Lookaside Buffer (TLB)-based Memory Management Unit (MMU) and a 2-Way Set-Associative Cache Controller. The system is engineered to address the "memory wall" bottleneck by providing high-speed virtual-to-physical address translation and efficient data caching. The design is implemented in Verilog-2001, emphasizing modularity to support future multi-level hierarchies. Key contributions include a robust Finite State Machine (FSM) for cache control, an invalidation-based coherence mechanism for Write-Through policies, and a novel script-driven verification environment. This environment parses human-readable instruction files (e.g., \texttt{R 0x1000}) to drive simulation scenarios, bridging the gap between architectural intent and RTL verification. Extensive simulations validate the correctness of the LRU replacement policy, hit/miss logic, and pipeline stall mechanisms under various load conditions.
+This project presents the complete Register Transfer Level (RTL) design, implementation, and verification of a memory management subsystem, comprising a Translation Lookaside Buffer (TLB)-based Memory Management Unit (MMU) and a 2-Way Set-Associative Cache Controller. The system is engineered to address the ``memory wall'' bottleneck by providing high-speed virtual-to-physical address translation and efficient data caching. The design is implemented in Verilog-2001, emphasizing modularity to support future multi-level hierarchies. Key contributions include a robust Finite State Machine (FSM) for cache control, an invalidation-based coherence mechanism for Write-Through policies, and a novel script-driven verification environment. This environment parses human-readable instruction files (e.g., \texttt{R 0x1000}) to drive simulation scenarios, bridging the gap between architectural intent and RTL verification. Extensive simulations validate the correctness of the LRU replacement policy, hit/miss logic, and pipeline stall mechanisms under various load conditions.
 
 \pagebreak
 \tableofcontents
@@ -137,7 +137,7 @@ The project leverages industry-standard EDA tools for verification and analysis.
 \chapter{Literature Survey}
 
 \section{Foundational Concepts in Computer Architecture}
-A review of foundational literature was conducted to establish the theoretical basis for our design. Textbooks such as "Computer Architecture: A Quantitative Approach" by Hennessy and Patterson and "Computer Architecture and Organization" by Smruti Sarangi provided comprehensive insights into memory hierarchies and caching principles \cite{sarangi2017computer}.
+A review of foundational literature was conducted to establish the theoretical basis for our design. Textbooks such as ``Computer Architecture: A Quantitative Approach'' by Hennessy and Patterson and ``Computer Architecture and Organization'' by Smruti Sarangi provided comprehensive insights into memory hierarchies and caching principles \cite{sarangi2017computer}.
 
 For practical implementation strategies, we analyzed the open-source Bluespec implementation of the SHAKTI processor's cache controller \cite{shakti_cache}. Additionally, educational resources from GeeksforGeeks and Branch Education were consulted to reinforce concepts regarding VIPT caches and virtual memory mechanisms \cite{gfg_cache, branch_edu_cache, tech_nikola, gfg_vipt}. This research directly informed our decisions regarding the 2-way set-associative structure and the write-through policy implementation.
 
@@ -165,14 +165,83 @@ We have successfully completed the architectural design, RTL implementation, and
 \subsection{System Architecture and Pipeline Design}
 The system comprises three main blocks: the CPU interface (simulated via testbench), the MMU, and the Cache Controller. The architecture follows a strict pipeline where the CPU issues a Virtual Address (VA), the MMU translates this to a Physical Address (PA) via the TLB, and the Cache Controller utilizes the PA to index into the SRAM arrays.
 
-A robust 7-state Finite State Machine (FSM) was designed to govern the cache controller's operation, handling states such as \texttt{S\_IDLE}, \texttt{S\_CHECK\_HIT}, \texttt{S\_READ\_MISS\_REFILL}, and \texttt{S\_WRITE\_THROUGH}.
+\begin{figure}[H]
+    \centering
+    % Uncomment the line below if 'overall_system.png' is available
+     \includegraphics[width=1.0\textwidth]{overall_system.png}
+    \caption{Overall System Architecture connecting CPU, MMU, Cache Controller, and Memory.}
+    \label{fig:overall_arch}
+\end{figure}
+
+As shown in Figure \ref{fig:overall_arch}, the CPU requests flow sequentially:
+\begin{enumerate}
+    \item \textbf{CPU $\rightarrow$ MMU:} The CPU issues \texttt{virt\_addr} along with \texttt{read\_mem} or \texttt{write\_mem} control signals.
+    \item \textbf{MMU $\rightarrow$ Cache Controller:} Upon a successful TLB hit, the MMU forwards the translated \texttt{phy\_addr} to the Cache Controller.
+    \item \textbf{Cache Controller $\rightarrow$ Memory:} If a cache miss occurs, the controller communicates with Main Memory via the \texttt{addr} and \texttt{data} buses to fetch the block.
+\end{enumerate}
 
 \subsection{Memory Management Unit (MMU) Implementation}
-We implemented a fully associative TLB model within the MMU. Unlike direct-mapped buffers, a fully associative design allows any Virtual Page Number (VPN) to be stored in any slot, maximizing hit rates for the small number of entries implemented.
+We implemented a fully associative TLB model within the MMU. Figure \ref{fig:mmu_block} illustrates the MMU's central role in translation.
+
+\begin{figure}[H]
+    \centering
+    % Uncomment the line below if 'mmu_block.png' is available
+   \includegraphics[width=0.8\textwidth]{mmu_block.png}
+    \caption{Memory Management Unit (MMU) Interface.}
+    \label{fig:mmu_block}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % Uncomment the line below if 'tlb_block.png' is available
+     \includegraphics[width=0.8\textwidth]{tlb_block.png}
+    \caption{Translation Lookaside Buffer (TLB) Block Diagram.}
+    \label{fig:tlb_block}
+\end{figure}
+
+The MMU integrates the TLB (Figure \ref{fig:tlb_block}), which performs the critical lookup.
 \begin{itemize}
-    \item \textbf{Lookup Logic:} The TLB compares the incoming VPN against all valid tags simultaneously in a single clock cycle.
-    \item \textbf{Refill Logic:} Upon a miss, the system signals a miss condition which, in a full system, would trigger a Page Table Walk.
+    \item \textbf{Lookup Logic:} The TLB compares the incoming \texttt{virt\_page\_number} against all valid tags simultaneously in a single clock cycle.
+    \item \textbf{Refill Logic:} Upon a miss, the system signals a miss condition via \texttt{TLB\_hit/miss}, which triggers a simulated Page Table Walk in the testbench.
 \end{itemize}
+
+\subsection{Cache Controller Implementation}
+The Cache Controller is the most complex module, managing data flow and consistency. As depicted in Figure \ref{fig:cc_block}, it sits between the MMU, the Cache Memory (SRAM), and the CPU.
+
+\begin{figure}[H]
+    \centering
+    % Uncomment the line below if 'cache_controller.png' is available
+     \includegraphics[width=1.0\textwidth]{cache_controller.png}
+    \caption{Cache Controller Interface Diagram.}
+    \label{fig:cc_block}
+\end{figure}
+
+The controller uses a robust Finite State Machine (FSM) to manage the following interfaces:
+\begin{itemize}
+    \item \textbf{To CPU:} Provides \texttt{hit/miss} status and \texttt{ready/stall} signals to freeze the pipeline during misses.
+    \item \textbf{To Cache Mem:} As shown in Figure \ref{fig:cache_mem}, this separate module stores the actual data. The controller sends indices and write enables to this block.
+    \item \textbf{To Main Memory:} As shown in Figure \ref{fig:main_mem}, this interface handles block refills (512 bits) and write-through operations.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        % Uncomment the line below if 'cache_memory.png' is available
+         \includegraphics[width=\textwidth]{cache_memory.png}
+        \caption{Cache Memory (Data Store)}
+        \label{fig:cache_mem}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        % Uncomment the line below if 'main_memory.png' is available
+         \includegraphics[width=\textwidth]{main_memory.png}
+        \caption{Main Memory Interface}
+        \label{fig:main_mem}
+    \end{subfigure}
+    \caption{Memory Storage Modules.}
+\end{figure}
 
 \section{Foundational Memory Management Formulas}
 The RTL design is guided by standard addressing formulas used to locate and validate data.
@@ -234,10 +303,10 @@ This forces the next read to the same address to result in a Cache Miss, trigger
 During the verification phase, several critical behaviors were observed and corrected.
 
 \subsection{Observation 1: Reset Logic and Verilog Standards}
-Initial simulations showed that internal storage arrays (`tag\_store`, `lru\_store`) remained in an unknown state (`X`) after reset. Analysis revealed this was due to the use of Verilog-2001 syntax (`integer i=0` inside a `for` loop) with a simulator defaulting to Verilog-1995 standards. The code was refactored to declare loop variables at the module scope, resolving the initialization issue.
+Initial simulations showed that internal storage arrays (\texttt{tag\_store}, \texttt{lru\_store}) remained in an unknown state (\texttt{X}) after reset. Analysis revealed this was due to the use of Verilog-2001 syntax (\texttt{integer i=0} inside a \texttt{for} loop) with a simulator defaulting to Verilog-1995 standards. The code was refactored to declare loop variables at the module scope, resolving the initialization issue.
 
 \subsection{Observation 2: Hit/Miss Signal Timing}
-An important timing behavior was observed regarding the `hit\_miss` output signal. The testbench initially checked this signal after the controller returned to the `IDLE` state. However, by that time, the cache had already refilled the missing line, causing the logic to report a "Hit" for what was actually a "Miss" event. We updated the verification logic to capture the `hit\_miss` signal state \textit{during} the request cycle, allowing for accurate hit/miss statistics.
+An important timing behavior was observed regarding the \texttt{hit\_miss} output signal. The testbench initially checked this signal after the controller returned to the \texttt{IDLE} state. However, by that time, the cache had already refilled the missing line, causing the logic to report a ``Hit'' for what was actually a ``Miss'' event. We updated the verification logic to capture the \texttt{hit\_miss} signal state \textit{during} the request cycle, allowing for accurate hit/miss statistics.
 
 % --- Chapter 4: Future Work ---
 \chapter{Future Work}
@@ -262,19 +331,19 @@ While the RTL design and functional verification are complete, the ultimate goal
 S. R. Sarangi, \textit{Computer Architecture and Organization}. McGraw-Hill Education, 2017.
 
 \bibitem{shakti_cache}
-SHAKTI Processor Project, "SHAKTI Cache Controller Implementation in Bluespec," \url{https://gitlab.com/shaktiproject/uncore/caches}.
+SHAKTI Processor Project, ``SHAKTI Cache Controller Implementation in Bluespec,'' \url{https://gitlab.com/shaktiproject/uncore/caches}.
 
 \bibitem{branch_edu_cache}
-Branch Education, "Cache Memory and RAM Explained," \url{https://youtu.be/7J7X7aZvMXQ?si=TxehuOpF31d4Nuxu}.
+Branch Education, ``Cache Memory and RAM Explained,'' \url{https://youtu.be/7J7X7aZvMXQ?si=TxehuOpF31d4Nuxu}.
 
 \bibitem{tech_nikola}
-Tech With Nikola, "But, what is Virtual Memory?", \url{https://youtu.be/A9WLYbE0p-I?si=BJN-8I-X92I3BC5-}.
+Tech With Nikola, ``But, what is Virtual Memory?'', \url{https://youtu.be/A9WLYbE0p-I?si=BJN-8I-X92I3BC5-}.
 
 \bibitem{gfg_cache}
-Geeks for Geeks, "Cache Memory in Computer Organization," \url{https://www.geeksforgeeks.org/cache-memory-in-computer-organization/}.
+Geeks for Geeks, ``Cache Memory in Computer Organization,'' \url{https://www.geeksforgeeks.org/cache-memory-in-computer-organization/}.
 
 \bibitem{gfg_vipt}
-Geeks for Geeks, "Virtually Indexed Physically Tagged (VIPT) Cache," \url{https://www.geeksforgeeks.org/computer-organization-architecture/virtually-indexed-physically-tagged-vipt-cache/}.
+Geeks for Geeks, ``Virtually Indexed Physically Tagged (VIPT) Cache,'' \url{https://www.geeksforgeeks.org/computer-organization-architecture/virtually-indexed-physically-tagged-vipt-cache/}.
 
 \end{thebibliography}
 
