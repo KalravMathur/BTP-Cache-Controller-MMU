@@ -55,24 +55,24 @@ module tb_mmu_simple_top;
     reg rst_n;
 
     // CPU Interface
-    reg [ADDR_WIDTH-1:0] cpu_req_va;
+    reg [`ADDR_WIDTH-1:0] cpu_req_va;
     reg                  cpu_req_valid;
     wire                 cpu_stall;
 
     // Cache Controller Interface
-    wire [ADDR_WIDTH-1:0] cache_pa;
+    wire [`ADDR_WIDTH-1:0] cache_pa;
     wire [1:0]            mmu_status;
     wire                  mmu_pa_valid;
 
     // PTW / Testbench Interface
     wire                  ptw_miss_detected;
     reg                   tb_refill_en;
-    reg [VPN_BITS-1:0]    tb_refill_vpn;
-    reg [PFN_BITS-1:0]    tb_refill_pfn;
+    reg [`VPN_BITS-1:0]    tb_refill_vpn;
+    reg [`PFN_BITS-1:0]    tb_refill_pfn;
 
     // --- Testbench Memory Map (VPN -> PFN) ---
     // Simple mapping: PFN = VPN + some offset for easy checking
-    function [PFN_BITS-1:0] get_expected_pfn(input [VPN_BITS-1:0] vpn);
+    function [`PFN_BITS-1:0] get_expected_pfn(input [`VPN_BITS-1:0] vpn);
         get_expected_pfn = vpn + 20'hA0000;
     endfunction
 
@@ -105,12 +105,12 @@ module tb_mmu_simple_top;
     always @(posedge clk) begin
         if (rst_n && ptw_miss_detected && !tb_refill_en) begin
             $display("[PTW] Miss detected for VPN %h. Starting fetch...",
-                     cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS]);
+                     cpu_req_va[`ADDR_WIDTH-1:`OFFSET_BITS]);
 
             // Extract VPN that caused the miss
-            tb_refill_vpn <= cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS];
+            tb_refill_vpn <= cpu_req_va[`ADDR_WIDTH-1:`OFFSET_BITS];
             // Look up corresponding PFN from our testbench memory map
-            tb_refill_pfn <= get_expected_pfn(cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS]);
+            tb_refill_pfn <= get_expected_pfn(cpu_req_va[`ADDR_WIDTH-1:`OFFSET_BITS]);
 
             // Simulate Memory Latency
             repeat (MEM_LATENCY) @(posedge clk);
@@ -214,9 +214,9 @@ module tb_mmu_simple_top;
         reg [ADDR_WIDTH-1:0] expected_pa;
         begin
             // Calculate expected values
-            expected_vpn = va[ADDR_WIDTH-1:OFFSET_BITS];
+            expected_vpn = va[`ADDR_WIDTH-1:`OFFSET_BITS];
             expected_pfn = get_expected_pfn(expected_vpn);
-            expected_pa = {expected_pfn, va[OFFSET_BITS-1:0]};
+            expected_pa = {expected_pfn, va[`OFFSET_BITS-1:0]};
 
             // Drive Request at positive edge
             @(posedge clk);
@@ -247,7 +247,7 @@ module tb_mmu_simple_top;
 
     // Task to verify MMU output
     task verify_response;
-        input [ADDR_WIDTH-1:0] exp_pa;
+        input [`ADDR_WIDTH-1:0] exp_pa;
         begin
             // Ensure we are checking at a time when valid should be high and stall low
             if (mmu_pa_valid && !cpu_stall && mmu_status == STATUS_OK) begin

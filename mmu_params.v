@@ -27,7 +27,7 @@
 // --- Address Sizes (configurable) ---
 `define ADDR_WIDTH 32
 `define PAGE_SIZE 4096 // 
-`define OFFSET_BITS $clog(PAGE_SIZE)
+`define OFFSET_BITS $clog2(PAGE_SIZE)
 `define VPN_WIDTH (`ADDR_WIDTH - `OFFSET_BITS)
 `define PFN_WIDTH (`ADDR_WIDTH - `OFFSET_BITS)
 

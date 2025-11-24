@@ -53,7 +53,7 @@ module mmu_simple_top (
     // =================================================================
     // CPU Interface (Input request and Stall output)
     // =================================================================
-    input wire [ADDR_WIDTH-1:0] cpu_req_va,
+    input wire [`ADDR_WIDTH-1:0] cpu_req_va,
     input wire                  cpu_req_valid,
 
     // EXPLICIT STALL SIGNAL: Tells CPU pipeline to freeze
@@ -62,7 +62,7 @@ module mmu_simple_top (
     // =================================================================
     // Cache Controller Interface (Physical Address Output)
     // =================================================================
-    output reg [ADDR_WIDTH-1:0] cache_pa,     // Physical address for tag comparison
+    output reg [`ADDR_WIDTH-1:0] cache_pa,     // Physical address for tag comparison
     output reg [1:0]            mmu_status,   // Status for cache controller
     output reg                  mmu_pa_valid, // Indicates cache_pa is valid right now
 
@@ -74,21 +74,21 @@ module mmu_simple_top (
 
     // "Backdoor" refill interface for the Testbench to act as memory
     input wire                  tb_refill_en,
-    input wire [VPN_BITS-1:0]   tb_refill_vpn,
-    input wire [PFN_BITS-1:0]   tb_refill_pfn
+    input wire [`VPN_BITS-1:0]   tb_refill_vpn,
+    input wire [`PFN_BITS-1:0]   tb_refill_pfn
 );
 
     // --- Internal Signals ---
-    wire [VPN_BITS-1:0] current_vpn;
-    wire [OFFSET_BITS-1:0] current_offset;
+    wire [`VPN_BITS-1:0] current_vpn;
+    wire [`OFFSET_BITS-1:0] current_offset;
 
     // Split address into VPN and Offset
-    assign current_vpn = cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS];
-    assign current_offset = cpu_req_va[OFFSET_BITS-1:0];
+    assign current_vpn = cpu_req_va[`ADDR_WIDTH-1:`OFFSET_BITS];
+    assign current_offset = cpu_req_va[`OFFSET_BITS-1:0];
 
     // TLB Signals
     wire tlb_hit;
-    wire [PFN_BITS-1:0] tlb_hit_pfn;
+    wire [`PFN_BITS-1:0] tlb_hit_pfn;
 
     // --- Instantiate Simplified TLB ---
     tlb_simple u_tlb (
@@ -111,8 +111,8 @@ module mmu_simple_top (
     always @(*) begin
         // 1. Set Default Outputs
         mmu_pa_valid = 1'b0;
-        cache_pa = {ADDR_WIDTH{1'b0}};
-        mmu_status = STATUS_OK;
+        cache_pa = {`ADDR_WIDTH{1'b0}};
+        mmu_status = `STATUS_OK;
         ptw_miss_detected = 1'b0;
         // Default: Do not stall
         cpu_stall = 1'b0;
@@ -124,7 +124,7 @@ module mmu_simple_top (
                 // --- TLB HIT ---
                 // Compose PA immediately for the cache controller
                 cache_pa = {tlb_hit_pfn, current_offset};
-                mmu_status = STATUS_OK;
+                mmu_status = `STATUS_OK;
                 // Tell Cache Controller the PA is valid
                 mmu_pa_valid = 1'b1;
                 // cpu_stall remains 0 (default)
