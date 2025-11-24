@@ -1,3 +1,4 @@
+`include "mmu_params.v"
 ////////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2025, Shiv Nadar University, Delhi NCR, India. All Rights
 // Reserved. Permission to use, copy, modify and distribute this software for
@@ -44,8 +45,6 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-`include "mmu_params.v"
-
 module mmu_simple_top (
     input wire clk,
     input wire rst_n,
@@ -74,8 +73,8 @@ module mmu_simple_top (
 
     // "Backdoor" refill interface for the Testbench to act as memory
     input wire                  tb_refill_en,
-    input wire [`VPN_BITS-1:0]   tb_refill_vpn,
-    input wire [`PFN_BITS-1:0]   tb_refill_pfn
+    input wire [`VPN_BITS -1:0]   tb_refill_vpn,
+    input wire [`PFN_BITS -1:0]   tb_refill_pfn
 );
 
     // --- Internal Signals ---
