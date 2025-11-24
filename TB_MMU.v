@@ -42,122 +42,234 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
-// test
+`include "mmu_params.v"
 
-`include "MMU_declarations.v"
+module tb_mmu_simple_top;
 
-module simple_mmu_tb;
+    // --- Parameters ---
+    localparam CLK_PERIOD = 10; // 100 MHz clock
+    localparam MEM_LATENCY = 4; // Cycles to simulate PTW fetching data
 
-  // Clock / reset
-  reg                    clk;
-  reg                    rst_n;
+    // --- DUT Signals ---
+    reg clk;
+    reg rst_n;
 
-  // DUT I/O
-  reg                    mmu_req_valid;
-  reg  [`ADDR_WIDTH-1:0] mmu_req_va;
-  wire                   mmu_req_ready;
+    // CPU Interface
+    reg [ADDR_WIDTH-1:0] cpu_req_va;
+    reg                  cpu_req_valid;
+    wire                 cpu_stall;
 
-  wire                   mmu_resp_valid;
-  wire [`ADDR_WIDTH-1:0] mmu_resp_pa;
-  wire [            1:0] mmu_resp_status;
-  reg                    mmu_resp_ready;
+    // Cache Controller Interface
+    wire [ADDR_WIDTH-1:0] cache_pa;
+    wire [1:0]            mmu_status;
+    wire                  mmu_pa_valid;
 
-  // Instantiate DUT
-  simple_mmu dut (
-      .clk            (clk),
-      .rst_n          (rst_n),
-      .mmu_req_valid  (mmu_req_valid),
-      .mmu_req_va     (mmu_req_va),
-      .mmu_req_ready  (mmu_req_ready),
-      .mmu_resp_valid (mmu_resp_valid),
-      .mmu_resp_pa    (mmu_resp_pa),
-      .mmu_resp_status(mmu_resp_status),
-      .mmu_resp_ready (mmu_resp_ready)
-  );
+    // PTW / Testbench Interface
+    wire                  ptw_miss_detected;
+    reg                   tb_refill_en;
+    reg [VPN_BITS-1:0]    tb_refill_vpn;
+    reg [PFN_BITS-1:0]    tb_refill_pfn;
 
-  // Clock gen: 10ns period
-  initial begin
-    clk = 0;
-    forever #5 clk = ~clk;
-  end
+    // --- Testbench Memory Map (VPN -> PFN) ---
+    // Simple mapping: PFN = VPN + some offset for easy checking
+    function [PFN_BITS-1:0] get_expected_pfn(input [VPN_BITS-1:0] vpn);
+        get_expected_pfn = vpn + 20'hA0000;
+    endfunction
 
-  // Simple task to issue one MMU request and consume one response
-  task automatic issue_req(input [`ADDR_WIDTH-1:0] va);
-    begin
-      // Wait until ready
-      @(posedge clk);
-      while (!mmu_req_ready) @(posedge clk);
+    // --- Instantiate the Device Under Test (DUT) ---
+    mmu_simple_top u_dut (
+        .clk(clk),
+        .rst_n(rst_n),
+        // CPU
+        .cpu_req_va(cpu_req_va),
+        .cpu_req_valid(cpu_req_valid),
+        .cpu_stall(cpu_stall),
+        // Cache
+        .cache_pa(cache_pa),
+        .mmu_status(mmu_status),
+        .mmu_pa_valid(mmu_pa_valid),
+        // PTW/TB
+        .ptw_miss_detected(ptw_miss_detected),
+        .tb_refill_en(tb_refill_en),
+        .tb_refill_vpn(tb_refill_vpn),
+        .tb_refill_pfn(tb_refill_pfn)
+    );
 
-      mmu_req_va    <= va;
-      mmu_req_valid <= 1'b1;
+    // --- Clock Generation ---
+    always #(CLK_PERIOD/2) clk = ~clk;
 
-      // Fire one cycle when ready
-      @(posedge clk);
-      if (mmu_req_ready && mmu_req_valid) begin
-        mmu_req_valid <= 1'b0;
-      end
+    // =================================================================
+    // PTW Request Handler (Simulates Memory Subsystem)
+    // =================================================================
+    // This block automatically monitors for misses and performs refills.
+    always @(posedge clk) begin
+        if (rst_n && ptw_miss_detected && !tb_refill_en) begin
+            $display("[PTW] Miss detected for VPN %h. Starting fetch...",
+                     cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS]);
 
-      // Wait for response valid
-      while (!mmu_resp_valid) @(posedge clk);
+            // Extract VPN that caused the miss
+            tb_refill_vpn <= cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS];
+            // Look up corresponding PFN from our testbench memory map
+            tb_refill_pfn <= get_expected_pfn(cpu_req_va[ADDR_WIDTH-1:OFFSET_BITS]);
 
-      // Sample + print
-      $display("[%0t] VA=0x%08h  ->  PA=0x%08h  status=%0d", $time, va, mmu_resp_pa,
-               mmu_resp_status);
+            // Simulate Memory Latency
+            repeat (MEM_LATENCY) @(posedge clk);
 
-      // Accept response
-      mmu_resp_ready <= 1'b1;
-      @(posedge clk);
-      mmu_resp_ready <= 1'b0;
+            $display("[PTW] Fetch complete. Refilling TLB with VPN %h -> PFN %h",
+                     tb_refill_vpn, tb_refill_pfn);
+
+            // Assert refill signal for one clock cycle
+            tb_refill_en <= 1'b1;
+            @(posedge clk);
+            tb_refill_en <= 1'b0;
+        end
+        // Default state for refill enable
+        else if (!ptw_miss_detected) begin
+             tb_refill_en <= 1'b0;
+        end
     end
-  endtask
 
-  // Helpers to construct VA
-  function automatic [`ADDR_WIDTH-1:0] make_va(input [`VPN_WIDTH-1:0] vpn,
-                                               input [`PAGE_OFFSET_WIDTH-1:0] off);
-    make_va = {vpn, off};
-  endfunction
 
-  // Stimulus
-  initial begin
-    // Init
-    mmu_req_valid  = 0;
-    mmu_req_va     = 0;
-    mmu_resp_ready = 0;
+    // =================================================================
+    // Main Test Stimulus
+    // =================================================================
+    initial begin
+        // 1. Initialize Signals
+        clk = 0;
+        rst_n = 0;
+        cpu_req_va = 0;
+        cpu_req_valid = 0;
+        tb_refill_en = 0;
+        tb_refill_vpn = 0;
+        tb_refill_pfn = 0;
 
-    // Reset
-    rst_n          = 0;
-    repeat (5) @(posedge clk);
-    rst_n = 1;
-    repeat (2) @(posedge clk);
+        $display("=== Starting MMU Simple Top Testbench ===");
+        $display("TLB Entries: %0d, Replacement: Round-Robin", TLB_ENTRIES);
 
-    // Access a few addresses:
-    // VPN 0..3 map to PFN 10..13 in mock PTW; others fault.
+        // 2. Reset Sequence
+        #(CLK_PERIOD * 5);
+        rst_n = 1;
+        #(CLK_PERIOD * 2);
+        $display("[TEST] Reset complete.");
 
-    // 1) First access to VPN=0 -> TLB miss, PTW resolve -> MISS status
-    issue_req(make_va(20'd0, 12'h123));
+        // ============================================================
+        // Test Case 1: Initial Misses and Fills
+        // ============================================================
+        $display("\n--- Test Case 1: Compulsory Misses & Fills ---");
+        // Request 1: VA 0x10000 -> Should Miss
+        send_cpu_req(32'h0001_0000);
+        // Request 2: VA 0x20000 -> Should Miss
+        send_cpu_req(32'h0002_0000);
+        // Request 3: VA 0x30000 -> Should Miss
+        send_cpu_req(32'h0003_0000);
+        // Request 4: VA 0x40000 -> Should Miss (TLB now full)
+        send_cpu_req(32'h0004_0000);
 
-    // 2) Second access to same VPN=0 -> TLB HIT -> HIT status
-    issue_req(make_va(20'd0, 12'hABC));
+        #(CLK_PERIOD*2);
 
-    // 3) Access to VPN=1 -> MISS then fill
-    issue_req(make_va(20'd1, 12'h010));
+        // ============================================================
+        // Test Case 2: Hits on previously loaded entries
+        // ============================================================
+        $display("\n--- Test Case 2: Verifying Hits ---");
+        // Re-Request 1: VA 0x10000 -> Should HIT immediately
+        send_cpu_req(32'h0001_0000);
+        // Re-Request 3: VA 0x30000 -> Should HIT immediately
+        send_cpu_req(32'h0003_0000);
 
-    // 4) Access to VPN=2 -> MISS then fill
-    issue_req(make_va(20'd2, 12'h020));
+        #(CLK_PERIOD*2);
 
-    // 5) Access to VPN=3 -> MISS then fill (TLB now full)
-    issue_req(make_va(20'd3, 12'h030));
+        // ============================================================
+        // Test Case 3: TLB Replacement (Round-Robin)
+        // ============================================================
+        $display("\n--- Test Case 3: TLB Replacement ---");
+        // TLB contains VPNs: 0x10, 0x20, 0x30, 0x40. RR pointer should be at slot 0.
 
-    // 6) Access to VPN=4 -> PAGE FAULT
-    issue_req(make_va(20'd4, 12'h040));
+        // Request 5: VA 0x50000 -> New VPN. Should Miss and evict entry 0 (VPN 0x10).
+        $display("[TEST] Requesting VA 0x50000 (Expecting eviction of 0x10000)");
+        send_cpu_req(32'h0005_0000);
 
-    // 7) Re-access VPN=1 to exercise LRU/HIT (depending on which got evicted)
-    issue_req(make_va(20'd1, 12'h055));
+        // Verify eviction: Request VA 0x10000 again. It should now MISS.
+        $display("[TEST] Re-requesting VA 0x10000 (Expecting MISS due to eviction)");
+        send_cpu_req(32'h0001_0000);
 
-    // Done
-    repeat (10) @(posedge clk);
-    $finish;
-  end
+        // Verify others are still there: Request VA 0x20000. Should HIT.
+        $display("[TEST] Re-requesting VA 0x20000 (Should still HIT)");
+        send_cpu_req(32'h0002_0000);
+
+        #(CLK_PERIOD * 10);
+        $display("\n=== All Tests Completed Successfully ===");
+        $finish;
+    end
+
+
+    // =================================================================
+    // Tasks for driver and monitor
+    // =================================================================
+
+    // Task to drive CPU requests and wait for completion
+    task send_cpu_req;
+        input [ADDR_WIDTH-1:0] va;
+        reg [VPN_BITS-1:0] expected_vpn;
+        reg [PFN_BITS-1:0] expected_pfn;
+        reg [ADDR_WIDTH-1:0] expected_pa;
+        begin
+            // Calculate expected values
+            expected_vpn = va[ADDR_WIDTH-1:OFFSET_BITS];
+            expected_pfn = get_expected_pfn(expected_vpn);
+            expected_pa = {expected_pfn, va[OFFSET_BITS-1:0]};
+
+            // Drive Request at positive edge
+            @(posedge clk);
+            cpu_req_va = va;
+            cpu_req_valid = 1'b1;
+
+            // Check for immediate combinational Hit or Miss/Stall
+            // Wait a small delay to allow combinational logic to settle after clock edge
+            #1;
+            if (cpu_stall) begin
+                // It's a miss. We need to wait for the Stall to deassert.
+                $display("[CPU] Request VA %h: Stall detected (Miss). Waiting...", va);
+                // Keep request valid while stalled
+                wait(!cpu_stall);
+                $display("[CPU] Stall deasserted. Checking response...");
+            end else if (mmu_pa_valid) begin
+                 $display("[CPU] Request VA %h: Immediate Hit detected.", va);
+            end
+
+            // At this point, stall is low, verify the valid response
+            verify_response(expected_pa);
+
+            // Deassert request on next clock cycle
+            @(posedge clk);
+            cpu_req_valid = 1'b0;
+        end
+    endtask
+
+    // Task to verify MMU output
+    task verify_response;
+        input [ADDR_WIDTH-1:0] exp_pa;
+        begin
+            // Ensure we are checking at a time when valid should be high and stall low
+            if (mmu_pa_valid && !cpu_stall && mmu_status == STATUS_OK) begin
+                if (cache_pa == exp_pa) begin
+                     $display("[PASS] Got correctly translated PA: %h", cache_pa);
+                end else begin
+                     $display("[FAIL] PA Mismatch! Expected %h, Got %h", exp_pa, cache_pa);
+                     $stop;
+                end
+            end else begin
+                $display("[FAIL] Invalid response state! Valid=%b, Stall=%b, Status=%b (Expected 1, 0, OK)",
+                         mmu_pa_valid, cpu_stall, mmu_status);
+                $stop;
+            end
+        end
+    endtask
+
+    // Safety timeout
+    initial begin
+        #(CLK_PERIOD * 500);
+        $display("\n[ERROR] Testbench timed out!");
+        $finish;
+    end
 
 endmodule
-

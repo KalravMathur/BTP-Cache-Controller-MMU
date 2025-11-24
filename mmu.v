@@ -44,7 +44,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-`include "mmu_params.vh"
+`include "mmu_params.v"
 
 module mmu_simple_top (
     input wire clk,
