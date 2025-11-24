@@ -1,29 +1,29 @@
 `timescale 1ns / 1ps
-`include "mmu_params.vh"
+`include "mmu_params.v"
 
 module tlb_simple (
     input wire clk,
     input wire rst_n,
 
     // --- Lookup Interface (Combinational) ---
-    input wire [VPN_BITS-1:0] lookup_vpn,
+    input wire [`VPN_WIDTH-1:0] lookup_vpn,
     output reg                lookup_hit,
-    output reg [PFN_BITS-1:0] lookup_pfn,
+    output reg [`PFN_WIDTH-1:0] lookup_pfn,
 
     // --- Refill Interface (Sequential) ---
     // In this simplified model, these are driven by the Testbench "backdoor"
     input wire                refill_en,
-    input wire [VPN_BITS-1:0] refill_vpn,
-    input wire [PFN_BITS-1:0] refill_pfn
+    input wire [`VPN_WIDTH-1:0] refill_vpn,
+    input wire [`PFN_WIDTH-1:0] refill_pfn
 );
 
     // Internal storage
-    reg [VPN_BITS-1:0] tag_mem [0:TLB_ENTRIES-1];
-    reg [PFN_BITS-1:0] data_mem [0:TLB_ENTRIES-1];
-    reg                valid_mem [0:TLB_ENTRIES-1];
+    reg [`VPN_WIDTH-1:0] tag_mem [0:`TLB_ENTRIES-1];
+    reg [`PFN_WIDTH-1:0] data_mem [0:`TLB_ENTRIES-1];
+    reg                valid_mem [0:`TLB_ENTRIES-1];
 
     // Replacement Pointer (Round-Robin/FIFO)
-    reg [TLB_PTR_BITS-1:0] replace_ptr;
+    reg [`TLB_PER_BITS-1:0] replace_ptr;
 
     integer i;
 
@@ -32,9 +32,9 @@ module tlb_simple (
     // =================================================================
     always @(*) begin
         lookup_hit = 1'b0;
-        lookup_pfn = {PFN_BITS{1'b0}};
+        lookup_pfn = {`PFN_WIDTH{1'b0}};
 
-        for (i = 0; i < TLB_ENTRIES; i = i + 1) begin
+        for (i = 0; i < `TLB_ENTRIES; i = i + 1) begin
             // Check if entry is valid AND tags match
             if (valid_mem[i] && (tag_mem[i] == lookup_vpn)) begin
                 lookup_hit = 1'b1;
@@ -50,11 +50,11 @@ module tlb_simple (
     // =================================================================
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            replace_ptr <= {TLB_PTR_BITS{1'b0}};
-            for (i = 0; i < TLB_ENTRIES; i = i + 1) begin
+            replace_ptr <= {`TLB_PER_BITS{1'b0}};
+            for (i = 0; i < `TLB_ENTRIES; i = i + 1) begin
                 valid_mem[i] <= 1'b0;
-                tag_mem[i] <= {VPN_BITS{1'b0}};
-                data_mem[i] <= {PFN_BITS{1'b0}};
+                tag_mem[i] <= {`VPN_WIDTH{1'b0}};
+                data_mem[i] <= {`PFN_WIDTH{1'b0}};
             end
         end else begin
             if (refill_en) begin

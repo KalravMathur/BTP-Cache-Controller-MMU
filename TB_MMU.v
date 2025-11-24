@@ -67,8 +67,8 @@ module tb_mmu_simple_top;
     // PTW / Testbench Interface
     wire                   ptw_miss_detected;
     reg                    tb_refill_en;
-    reg  [ `VPN_WIDTH-1:0] tb_refill_vpn;
-    reg  [ `PFN_WIDTH-1:0] tb_refill_pfn;
+    reg  [`VPN_WIDTH-1:0] tb_refill_vpn;
+    reg  [`PFN_WIDTH-1:0] tb_refill_pfn;
 
     // --- Testbench Memory Map (VPN -> PFN) ---
     // Simple mapping: PFN = VPN + some offset for easy checking
@@ -143,7 +143,7 @@ module tb_mmu_simple_top;
         tb_refill_pfn = 0;
 
         $display("=== Starting MMU Simple Top Testbench ===");
-        $display("TLB Entries: %0d, Replacement: Round-Robin", TLB_ENTRIES);
+        $display("TLB Entries: %0d, Replacement: Round-Robin", `TLB_ENTRIES);
 
         // 2. Reset Sequence
         #(CLK_PERIOD * 5);
@@ -207,10 +207,10 @@ module tb_mmu_simple_top;
 
     // Task to drive CPU requests and wait for completion
     task send_cpu_req;
-        input [ADDR_WIDTH-1:0] va;
-        reg [ VPN_WIDTH-1:0] expected_vpn;
-        reg [ PFN_WIDTH-1:0] expected_pfn;
-        reg [ADDR_WIDTH-1:0] expected_pa;
+        input [`ADDR_WIDTH-1:0] va;
+        reg [`VPN_WIDTH-1:0] expected_vpn;
+        reg [ `PFN_WIDTH-1:0] expected_pfn;
+        reg [`ADDR_WIDTH-1:0] expected_pa;
         begin
             // Calculate expected values
             expected_vpn = va[`ADDR_WIDTH-1:`OFFSET_BITS];
@@ -249,7 +249,7 @@ module tb_mmu_simple_top;
         input [`ADDR_WIDTH-1:0] exp_pa;
         begin
             // Ensure we are checking at a time when valid should be high and stall low
-            if (mmu_pa_valid && !cpu_stall && mmu_status == STATUS_OK) begin
+            if (mmu_pa_valid && !cpu_stall && mmu_status == `STATUS_OK) begin
                 if (cache_pa == exp_pa) begin
                     $display("[PASS] Got correctly translated PA: %h", cache_pa);
                 end else begin
