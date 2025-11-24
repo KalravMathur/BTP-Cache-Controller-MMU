@@ -1,22 +1,41 @@
-`ifndef MMU_PARAMS_VH
-`define MMU_PARAMS_VH
+////////////////////////////////////////////////////////////////////////////////
+// Copyright (c) 2025, Shiv Nadar University, Delhi NCR, India. All Rights
+// Reserved. Permission to use, copy, modify and distribute this software for
+// educational, research, and not-for-profit purposes, without fee and without a
+// signed license agreement, is hereby granted, provided that this paragraph and
+// the following two paragraphs appear in all copies, modifications, and
+// distributions.
+//
+// IN NO EVENT SHALL SHIV NADAR UNIVERSITY BE LIABLE TO ANY PARTY FOR DIRECT,
+// INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST
+// PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE.
+//
+// SHIV NADAR UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT
+// NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+// PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS PROVIDED "AS IS". SHIV
+// NADAR UNIVERSITY HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+// ENHANCEMENTS, OR MODIFICATIONS.
+//
+// Revision History:
+// Date          By                     Change Notes
+// 14 Nov 2025   Kalrav Mathur          Original
+//
+////////////////////////////////////////////////////////////////////////////////
+`ifndef MMU_PARAMS_V
+`define MMU_PARAMS_V
 
-// --- Architecture parameters ---
-localparam ADDR_WIDTH = 32;
-localparam PAGE_SIZE = 4096;     // 4KB
-localparam OFFSET_BITS = $clog(PAGE_SIZE);     // log2(4096)
+// --- Address Sizes (configurable) ---
+`define ADDR_WIDTH 32
+`define PAGE_SIZE 4096 // 
+`define OFFSET_BITS $clog(PAGE_SIZE)
+`define VPN_WIDTH (`ADDR_WIDTH - `OFFSET_BITS)
+`define PFN_WIDTH (`ADDR_WIDTH - `OFFSET_BITS)
 
-// derived parameters
-localparam VPN_BITS = ADDR_WIDTH - OFFSET_BITS; // 32 - 12 = 20 bits
-localparam PFN_BITS = ADDR_WIDTH - OFFSET_BITS; // 20 bits
+// --- TLB Configuration ---
+`define TLB_ENTRIES 4
+`define TLB_PER_BITS $clog2(TLB_ENTRIES)  // ceil(log2(NUM_TLB_ENTRIES))
 
-// --- TLB parameters ---
-localparam TLB_ENTRIES = 4; // Small fully associative TLB
-// Bits needed for index pointer.
-localparam TLB_PTR_BITS = $clog2(TLB_ENTRIES); // 2 bits for 4 entries
+// --- MMU Status Codes ---
+`define STATUS_OK 2'b10 // Translation successful
 
-// --- Status Codes used in response ---
-localparam STATUS_OK          = 2'b10; // Translation successful
-// Other statuses unused in this simplified version but kept for compatibility
-
-`endif
+`endif  // MMU_PARAMS_V
