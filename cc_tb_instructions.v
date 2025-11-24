@@ -191,7 +191,7 @@ module tb_cache_controller;
     initial begin
         mm_state = MM_IDLE;
         // Initialize memory to 0
-        for (i = 0; i < 4096; i = i + 1) mm_storage[i] = 32'b1;
+        for (i = 0; i < 4096; i = i + 1) mm_storage[i] = 32'hFFFF_FFFF;
     end
 
     always @(posedge clk) begin
