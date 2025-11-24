@@ -166,16 +166,33 @@ module tb_cache_controller;
         $finish;
     end
 
-    // --- Main Memory Simulation Logic---
-    // Same robust logic as before
-    reg [2:0] mm_state;
+    // --- Main Memory Simulation Logic (REAL MEMORY) ---
+    // NOTE: SystemVerilog associative array for sparse memory
+    // If using standard Verilog-2001, use a large reg array or $readmemh
+    // Since VCS supports SV by default with .v files usually, we try SV associative.
+    // If strict Verilog required, we can't simulate full 32-bit space easily.
+    // We'll use a simplified approach: A modest array masked by lower bits.
+
+    // 16KB Main Memory Model (simulating 32-bit address space with aliasing)
+    reg [31:0] mm_storage[0:4095];
+
+    reg [ 2:0] mm_state;
     localparam MM_IDLE = 0;
     localparam MM_READ_WAIT = 1;
     localparam MM_WRITE_WAIT = 2;
     localparam MM_DONE = 3;
     integer mm_counter;
+    integer i;
 
-    initial mm_state = MM_IDLE;
+    // Helper to build a 512-bit block from 16 words
+    reg [511:0] temp_block;
+    reg [31:0] base_word_addr;
+
+    initial begin
+        mm_state = MM_IDLE;
+        // Initialize memory to 0
+        for (i = 0; i < 4096; i = i + 1) mm_storage[i] = 32'd0;
+    end
 
     always @(posedge clk) begin
         main_mem_ready <= 0;
@@ -197,10 +214,15 @@ module tb_cache_controller;
             MM_READ_WAIT: begin
                 mm_counter <= mm_counter + 1;
                 if (mm_counter >= 3) begin
-                    // Return predictable data
-                    // If special test case (0x2000), return DEADBEEF
-                    if (main_mem_addr == 32'h00002000) main_mem_data_in <= {16{32'hDEADBEEF}};
-                    else main_mem_data_in <= {16{main_mem_addr}};
+                    // Fetch 16 words to form a 512-bit block
+                    // Align address to 64-byte boundary (lower 6 bits 0)
+                    // Use lower 14 bits of address for our small 16KB array
+                    base_word_addr = (main_mem_addr[13:0] & ~6'b111111) >> 2;
+
+                    for (i = 0; i < 16; i = i + 1) begin
+                        temp_block[(i*32)+:32] = mm_storage[base_word_addr+i];
+                    end
+                    main_mem_data_in <= temp_block;
 
                     mm_state <= MM_DONE;
                 end
@@ -209,6 +231,12 @@ module tb_cache_controller;
             MM_WRITE_WAIT: begin
                 mm_counter <= mm_counter + 1;
                 if (mm_counter >= 3) begin
+                    // Perform the write
+                    // Use lower 14 bits for index
+                    mm_storage[main_mem_addr[13:0]>>2] <= main_mem_data_out;
+                    $display("    [MainMem] Stored %h at index %h", main_mem_data_out,
+                             main_mem_addr[13:0] >> 2);
+
                     mm_state <= MM_DONE;
                 end
             end
@@ -228,19 +256,12 @@ module tb_cache_controller;
             phy_addr = addr;
             read_mem = 1;
 
-            // Wait for rising edge to latch request
             @(posedge clk);
-            #1;  // Small delay for comb logic
-
-            // Capture status immediately
+            #1;
             was_hit  = hit_miss;
-
             read_mem = 0;
 
-            // Wait for completion
             wait_for_idle();
-
-            // Print Result
             print_result("READ ", addr);
         end
     endtask
@@ -262,26 +283,20 @@ module tb_cache_controller;
     endtask
 
     task wait_for_idle;
-        // Verilog-2001 compatible declaration
         integer timeout;
         begin
             timeout = 0;
-            // Wait while stalled
             while (ready_stall == 1 && timeout < 100) begin
                 @(posedge clk);
                 timeout = timeout + 1;
             end
-
             if (timeout == 100) $display("    [TB] WARNING: Timeout waiting for idle!");
-
-            #5;  // Buffer
+            #5;
         end
     endtask
 
     task print_result(input [8*5:1] op_name, input [31:0] addr);
         begin
-            // Decode Index and Tag for clarity
-            // Index is bits [11:6], Tag is [31:12]
             $display("    [RESULT] %s @ %h | Status: %s | Data Out: %h | Set: %0d | Tag: %h",
                      op_name, addr, (was_hit ? "HIT " : "MISS"), data_to_cpu,
                      addr[11:6],  // Set Index
