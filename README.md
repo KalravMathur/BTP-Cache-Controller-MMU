@@ -7,7 +7,7 @@ This branch contains the LaTeX source code and assets for the **End Term Report*
 ## **Repository Contents**
 
 - **`report.tex`** — Main LaTeX source file for the report.  
-- **`logo.jpg`** — Source image used in report figures.
+- **`*.jpg & *.png`** — Source images used in report figures.
 
 ---
 
