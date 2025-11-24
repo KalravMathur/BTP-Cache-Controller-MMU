@@ -44,7 +44,7 @@
  * We will make this memory "cheat" slightly. It will have a backdoor access to the controller's 
  * hit signals to select the right read data.
  */
-
+`timescale 1ns / 1ps
 module cache_mem (
     input  wire         clk,
     input  wire [  5:0] index,     // Set index from controller
