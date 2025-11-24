@@ -132,24 +132,24 @@ module tb_cache_controller;
                 end
             end
             MM_READ_WAIT: begin
-                mm_cnt <= mm_cnt + 1;
-                if (mm_cnt >= 3) begin
-                    // Use LATCHED address for read
-                    //base_addr = (latched_addr[31:0] & 14'h3FC0) >> 2;
-                    // for (k = 0; k < 16; k = k + 1) temp_blk[k*32+:32] = mm_storage[base_addr+k];
-                    main_mem_data_in <= mm_storage[latched_addr];
-                    mm_state <= MM_DONE;
-                end
+                //mm_cnt <= mm_cnt + 1;
+                //if (mm_cnt >= 3) begin
+                // Use LATCHED address for read
+                //base_addr = (latched_addr[31:0] & 14'h3FC0) >> 2;
+                // for (k = 0; k < 16; k = k + 1) temp_blk[k*32+:32] = mm_storage[base_addr+k];
+                main_mem_data_in <= mm_storage[latched_addr];
+                mm_state <= MM_DONE;
+                //end
             end
             MM_WRITE_WAIT: begin
-                mm_cnt <= mm_cnt + 1;
-                if (mm_cnt >= 3) begin
-                    // Use LATCHED address and data for write
-                    mm_storage[latched_addr[31:0]] <= latched_data_in;
-                    $display("    [MainMem] Stored %d at index %d", latched_data_in,
-                             latched_addr[31:0]);
-                    mm_state <= MM_DONE;
-                end
+                //mm_cnt <= mm_cnt + 1;
+                //if (mm_cnt >= 3) begin
+                // Use LATCHED address and data for write
+                mm_storage[latched_addr[31:0]] <= latched_data_in;
+                $display("    [MainMem] Stored %d at index %d", latched_data_in,
+                         latched_addr[31:0]);
+                mm_state <= MM_DONE;
+                //end
             end
             MM_DONE: begin
                 main_mem_ready <= 1;
