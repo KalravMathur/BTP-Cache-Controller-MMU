@@ -52,43 +52,33 @@ module cache_controller (
     input wire clk,
     input wire rst_n,
 
-    // --- Interface to MMU/CPU ---
-    input wire [31:0] phy_addr,       // Physical Address from MMU
-    input wire [31:0] data_from_cpu,  // Data from CPU (for writes)
-    input wire        read_mem,       // CPU Read Request
-    input wire        write_mem,      // CPU Write Request
+    input wire [31:0] phy_addr,
+    input wire [31:0] data_from_cpu,
+    input wire        read_mem,
+    input wire        write_mem,
 
-    // Sends responses back to the CPU
-    output wire [31:0] data_to_cpu,  // Data to CPU (on read hit)
-    output wire        hit_miss,     // 1 for hit, 0 for miss
-    output wire        ready_stall,  // 0 for ready, 1 for stall
+    output wire [31:0] data_to_cpu,
+    output wire        hit_miss,
+    output wire        ready_stall,
 
+    output reg [5:0] cache_mem_index,
+    output reg [511:0] cache_mem_data_in,
+    output reg cache_mem_write_en,
+    input wire [511:0] cache_mem_data_out,
 
-    // --- Interface to Cache Memory ---
-    output reg [5:0] cache_mem_index,  // Index to read/write in cache
-    output reg [511:0] cache_mem_data_in,  // Data block to write to cache
-    output reg cache_mem_write_en,  // Write enable for cache
-    input wire [511:0] cache_mem_data_out,  // Data block read from cache
-
-
-    // --- Interface to Main Memory ---
-    output reg  [ 31:0] main_mem_addr,       // Address to main memory
-    output reg  [ 31:0] main_mem_data_out,   // Data to write to main mem
-    output reg          main_mem_read_req,   // Read request to main mem
-    output reg          main_mem_write_req,  // Write request to main mem
-    input  wire [511:0] main_mem_data_in,    // Data block from main mem
-    input  wire         main_mem_ready       // 1 when main mem is done
+    output reg  [ 31:0] main_mem_addr,
+    output reg  [ 31:0] main_mem_data_out,
+    output reg          main_mem_read_req,
+    output reg          main_mem_write_req,
+    input  wire [511:0] main_mem_data_in,
+    input  wire         main_mem_ready
 );
 
-    // --- Parameter Definitions ---
     localparam TAG_BITS = 20;
     localparam INDEX_BITS = 6;
     localparam OFFSET_BITS = 6;
-
     localparam NUM_SETS = 64;
-    localparam BLOCK_WORDS = 16;
 
-    // --- State Machine Definitions ---
     localparam [2:0] S_IDLE = 3'b000;
     localparam [2:0] S_CHECK_HIT = 3'b001;
     localparam [2:0] S_READ_MISS_FETCH = 3'b010;
@@ -99,7 +89,6 @@ module cache_controller (
 
     reg [2:0] state, next_state;
 
-    // --- Data Path Registers ---
     reg [31:0] reg_data_to_cpu;
     reg [511:0] reg_block_from_mem;
     reg [31:0] reg_phy_addr;
@@ -107,37 +96,38 @@ module cache_controller (
     reg reg_is_write;
     reg reg_is_read;
 
-    // --- Internal Storage (Tag, Valid, LRU) ---
     reg [TAG_BITS-1:0] tag_store[0:NUM_SETS-1][0:1];
     reg valid_store[0:NUM_SETS-1][0:1];
     reg lru_store[0:NUM_SETS-1];
 
-    // --- Address Decomposition ---
     wire [TAG_BITS-1:0] addr_tag;
     wire [INDEX_BITS-1:0] addr_index;
     wire [OFFSET_BITS-1:0] addr_offset;
 
+    // Use registered address for stable indexing
     assign addr_tag    = reg_phy_addr[31 : 32-TAG_BITS];
     assign addr_index  = reg_phy_addr[31-TAG_BITS : OFFSET_BITS];
     assign addr_offset = reg_phy_addr[OFFSET_BITS-1 : 0];
 
-    wire    [3:0] word_offset = addr_offset[5:2];
+    wire [3:0] word_offset = addr_offset[5:2];
 
-    // --- Hit/Miss Logic (Combinational) ---
-    wire          way0_hit = (tag_store[addr_index][0] == addr_tag) && valid_store[addr_index][0];
-    wire          way1_hit = (tag_store[addr_index][1] == addr_tag) && valid_store[addr_index][1];
-    wire          is_hit = way0_hit || way1_hit;
+    wire way0_hit = (tag_store[addr_index][0] == addr_tag) && valid_store[addr_index][0];
+    wire way1_hit = (tag_store[addr_index][1] == addr_tag) && valid_store[addr_index][1];
+    wire is_hit = way0_hit || way1_hit;
 
-    // --- FSM Sequential Logic ---
-    integer       i;
-    reg           victim_way;
+    integer i;
+    reg victim_way;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= S_IDLE;
             reg_data_to_cpu <= 'd0;
+            reg_is_read <= 0;
+            reg_is_write <= 0;
+            // Explicitly zero out data regs to avoid X
+            reg_phy_addr <= 0;
+            reg_data_from_mmu <= 0;
 
-            // Initialize tag/valid stores on reset
             for (i = 0; i < NUM_SETS; i = i + 1) begin
                 valid_store[i][0] <= 1'b0;
                 valid_store[i][1] <= 1'b0;
@@ -145,53 +135,54 @@ module cache_controller (
                 tag_store[i][1]   <= 'd0;
                 lru_store[i]      <= 1'b0;
             end
-            reg_is_read  <= 1'b0;
-            reg_is_write <= 1'b0;
-
         end else begin
             state <= next_state;
 
-            if (next_state == S_IDLE) begin
-                reg_is_read  <= 1'b0;
-                reg_is_write <= 1'b0;
-            end
-
             // Latch request data
-            if (state == S_IDLE && (read_mem || write_mem)) begin
-                reg_phy_addr      <= phy_addr;
-                reg_data_from_mmu <= data_from_cpu;
-                reg_is_write      <= write_mem;
-                reg_is_read       <= read_mem;
+            // We use 'next_state' check to ensure we capture right before transitioning
+            if (state == S_IDLE) begin
+                if (read_mem || write_mem) begin
+                    reg_phy_addr      <= phy_addr;
+                    reg_data_from_mmu <= data_from_cpu;
+                    reg_is_write      <= write_mem;
+                    reg_is_read       <= read_mem;
+                end
             end
 
-            // Latch block from main memory
+            // Clear control flags if we are returning to IDLE
+            if (next_state == S_IDLE) begin
+                reg_is_read  <= 0;
+                reg_is_write <= 0;
+            end
+
             if (state == S_READ_MISS_WAIT && main_mem_ready) begin
                 reg_block_from_mem <= main_mem_data_in;
             end
 
-            // Update LRU on hit
             if (state == S_CHECK_HIT && is_hit) begin
                 if (way0_hit) lru_store[addr_index] <= 1'b1;
                 else lru_store[addr_index] <= 1'b0;
             end
 
-            // Latch the output data on a Read Hit
             if (state == S_CHECK_HIT && is_hit && reg_is_read) begin
-                if (way0_hit || way1_hit) begin
-                    reg_data_to_cpu <= cache_mem_data_out[(word_offset*32)+:32];
+                reg_data_to_cpu <= cache_mem_data_out[(word_offset*32)+:32];
+            end
+
+            // ** Robust Invalidation **
+            // We only invalidate if we are actively writing and have a hit.
+            if (state == S_CHECK_HIT && is_hit && reg_is_write) begin
+                if (way0_hit) begin
+                    valid_store[addr_index][0] <= 1'b0;
+                    $display("[CC] Invalidated Set %0d Way 0 due to Write Hit", addr_index);
+                end
+                if (way1_hit) begin
+                    valid_store[addr_index][1] <= 1'b0;
+                    $display("[CC] Invalidated Set %0d Way 1 due to Write Hit", addr_index);
                 end
             end
 
-            // ** NEW: Invalidate cache line on Write Hit **
-            if (state == S_CHECK_HIT && is_hit && reg_is_write) begin
-                if (way0_hit) valid_store[addr_index][0] <= 1'b0;
-                if (way1_hit) valid_store[addr_index][1] <= 1'b0;
-            end
-
-            // Update cache on refill
             if (state == S_READ_MISS_REFILL) begin
                 victim_way = lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]];
-
                 tag_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]][victim_way]   <= reg_phy_addr[31 : 32-TAG_BITS];
                 valid_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]][victim_way] <= 1'b1;
                 lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]] <= ~victim_way;
@@ -199,7 +190,6 @@ module cache_controller (
         end
     end
 
-    // --- FSM Combinational Logic ---
     assign data_to_cpu = reg_data_to_cpu;
     assign hit_miss    = is_hit;
 
@@ -212,7 +202,6 @@ module cache_controller (
         cache_mem_index    = addr_index;
         cache_mem_data_in  = 'd0;
         cache_mem_write_en = 1'b0;
-
         main_mem_addr      = 'd0;
         main_mem_data_out  = 'd0;
         main_mem_read_req  = 1'b0;
@@ -220,20 +209,14 @@ module cache_controller (
 
         case (state)
             S_IDLE: begin
-                if (read_mem || write_mem) begin
-                    next_state = S_CHECK_HIT;
-                end
+                if (read_mem || write_mem) next_state = S_CHECK_HIT;
             end
 
             S_CHECK_HIT: begin
                 if (reg_is_read) begin
-                    if (is_hit) begin
-                        next_state = S_IDLE;
-                    end else begin
-                        next_state = S_READ_MISS_FETCH;
-                    end
+                    if (is_hit) next_state = S_IDLE;
+                    else next_state = S_READ_MISS_FETCH;
                 end else if (reg_is_write) begin
-                    // Write Request -> Go to Write Through state
                     next_state = S_WRITE_THROUGH;
                 end
             end
@@ -245,9 +228,7 @@ module cache_controller (
             end
 
             S_READ_MISS_WAIT: begin
-                if (main_mem_ready) begin
-                    next_state = S_READ_MISS_REFILL;
-                end
+                if (main_mem_ready) next_state = S_READ_MISS_REFILL;
             end
 
             S_READ_MISS_REFILL: begin
@@ -265,14 +246,10 @@ module cache_controller (
             end
 
             S_WRITE_THROUGH_WAIT: begin
-                if (main_mem_ready) begin
-                    next_state = S_IDLE;
-                end
+                if (main_mem_ready) next_state = S_IDLE;
             end
 
-            default: begin
-                next_state = S_IDLE;
-            end
+            default: next_state = S_IDLE;
         endcase
     end
 endmodule
