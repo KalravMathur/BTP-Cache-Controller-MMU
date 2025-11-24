@@ -35,18 +35,15 @@ module tb_cache_controller;
     reg read_mem;
     reg write_mem;
 
-    // Outputs from DUT
     wire [31:0] data_to_cpu;
     wire hit_miss;
     wire ready_stall;
 
-    // Cache Memory Interface
     wire [5:0] cache_index;
     wire [511:0] cache_data_write;
     wire cache_write_en;
     wire [511:0] cache_data_read;
 
-    // Main Memory Interface
     wire [31:0] main_mem_addr;
     wire [31:0] main_mem_data_out;
     wire main_mem_read_req;
@@ -54,20 +51,17 @@ module tb_cache_controller;
     reg [511:0] main_mem_data_in;
     reg main_mem_ready;
 
-    // Verification Variables
-    reg was_hit;
+    reg is_hit_result;
     integer file_handle;
     integer scan_result;
-    reg [8*10:1] cmd;  // Stores "R" or "W"
+    reg [8*10:1] cmd;
     reg [31:0] file_addr;
     reg [31:0] file_data;
     integer instruction_count;
 
-    // --- Clock Generation ---
     initial clk = 0;
-    always #5 clk = ~clk;  // 10ns period
+    always #5 clk = ~clk;
 
-    // --- Instantiate Cache Controller (DUT) ---
     cache_controller dut (
         .clk(clk),
         .rst_n(rst_n),
@@ -90,7 +84,6 @@ module tb_cache_controller;
         .main_mem_ready(main_mem_ready)
     );
 
-    // --- Instantiate Simple Cache Memory ---
     cache_mem l1_cache (
         .clk(clk),
         .index(cache_index),
@@ -102,59 +95,166 @@ module tb_cache_controller;
         .lru_bit(dut.lru_store[cache_index])
     );
 
-    // --- Main Test Sequence ---
+    // --- Main Memory Model (16KB Real Storage) ---
+    reg [31:0] mm_storage[0:4095];
+    reg [ 2:0] mm_state;
+    localparam MM_IDLE = 0, MM_READ_WAIT = 1, MM_WRITE_WAIT = 2, MM_DONE = 3;
+    integer mm_cnt;
+    integer k;
+    reg [511:0] temp_blk;
+    reg [31:0] base_addr;
+
+    // ** FIX: Latch address and data from bus **
+    reg [31:0] latched_addr;
+    reg [31:0] latched_data_in;
+
+    initial begin
+        mm_state = MM_IDLE;
+        for (k = 0; k < 4096; k = k + 1) mm_storage[k] = 0;
+    end
+
+    always @(posedge clk) begin
+        main_mem_ready <= 0;
+        case (mm_state)
+            MM_IDLE: begin
+                if (main_mem_read_req) begin
+                    latched_addr <= main_mem_addr;  // Capture Address
+                    $display("    [MainMem] Read Req -> Addr: %h", main_mem_addr);
+                    mm_cnt   <= 0;
+                    mm_state <= MM_READ_WAIT;
+                end else if (main_mem_write_req) begin
+                    latched_addr <= main_mem_addr;  // Capture Address
+                    latched_data_in <= main_mem_data_out;  // Capture Data
+                    $display("    [MainMem] Write Req -> Addr: %h Data: %h", main_mem_addr,
+                             main_mem_data_out);
+                    mm_cnt   <= 0;
+                    mm_state <= MM_WRITE_WAIT;
+                end
+            end
+            MM_READ_WAIT: begin
+                mm_cnt <= mm_cnt + 1;
+                if (mm_cnt >= 3) begin
+                    // Use LATCHED address for read
+                    base_addr = (latched_addr[13:0] & 14'h3FC0) >> 2;
+                    for (k = 0; k < 16; k = k + 1) temp_blk[k*32+:32] = mm_storage[base_addr+k];
+                    main_mem_data_in <= temp_blk;
+                    mm_state <= MM_DONE;
+                end
+            end
+            MM_WRITE_WAIT: begin
+                mm_cnt <= mm_cnt + 1;
+                if (mm_cnt >= 3) begin
+                    // Use LATCHED address and data for write
+                    mm_storage[latched_addr[13:0]>>2] <= latched_data_in;
+                    $display("    [MainMem] Stored %h at index %h", latched_data_in,
+                             latched_addr[13:0] >> 2);
+                    mm_state <= MM_DONE;
+                end
+            end
+            MM_DONE: begin
+                main_mem_ready <= 1;
+                mm_state <= MM_IDLE;
+            end
+        endcase
+    end
+
+    // --- Tasks ---
+    task execute_read(input [31:0] addr);
+        begin
+            phy_addr = addr;
+            read_mem = 1;
+            #1;  // Setup time
+            @(posedge clk);
+
+            // Check Hit/Miss immediately after request clock edge
+            #1;
+            if (ready_stall == 1) is_hit_result = 0;
+            else is_hit_result = 1;
+
+            read_mem = 0;
+            wait_for_idle();
+            print_result("READ ", addr);
+        end
+    endtask
+
+    task execute_write(input [31:0] addr, input [31:0] data);
+        begin
+            phy_addr = addr;
+            data_from_cpu = data;
+
+            #5;  // Data setup
+            write_mem = 1;
+            @(posedge clk);
+
+            is_hit_result = 1;  // Writes are accepted
+
+            write_mem = 0;
+            wait_for_idle();
+            print_result("WRITE", addr);
+        end
+    endtask
+
+    task wait_for_idle;
+        integer t;
+        begin
+            t = 0;
+            while (ready_stall == 1 && t < 500) begin
+                @(posedge clk);
+                t = t + 1;
+            end
+            if (t == 500) $display("    [TB] WARNING: Timeout waiting for idle!");
+            #5;
+        end
+    endtask
+
+    task print_result(input [8*5:1] op, input [31:0] adr);
+        begin
+            $display("    [RESULT] %s @ %h | Status: %s | Data Out: %h | Set: %0d | Tag: %h", op,
+                     adr, (is_hit_result ? "HIT " : "MISS"), data_to_cpu, adr[11:6], adr[31:12]);
+        end
+    endtask
+
+    // --- Main Execution ---
     initial begin
         $display("\n========================================================");
-        $display("            Cache Controller Verification");
+        $display("   Script-Driven Cache Controller Verification");
         $display("========================================================");
 
-        // 1. Initialize
         rst_n = 0;
         read_mem = 0;
         write_mem = 0;
         phy_addr = 0;
         data_from_cpu = 0;
-        was_hit = 0;
+        is_hit_result = 0;
         instruction_count = 0;
         main_mem_ready = 0;
         main_mem_data_in = 0;
 
-        // 2. Reset
         #20 rst_n = 1;
         #10;
-        $display("[TB] Reset Complete. Controller State: (%0d)", dut.state);
+        $display("[TB] Reset Complete.");
 
-        // 3. Open Instruction File
         file_handle = $fopen("instructions.txt", "r");
         if (file_handle == 0) begin
-            $display("[TB] ERROR: Could not open 'instructions.txt'. Make sure it exists.");
+            $display("[TB] ERROR: Could not open 'instructions.txt'.");
             $finish;
         end
 
-        // 4. Parse Loop
         while (!$feof(
             file_handle
         )) begin
-            // Read command (R/W) and Address
             scan_result = $fscanf(file_handle, "%s %h", cmd, file_addr);
-
-            if (scan_result >= 2) begin  // Ensure we read at least cmd and addr
+            if (scan_result >= 2) begin
                 instruction_count = instruction_count + 1;
                 $display("\n--- Instruction #%0d ---", instruction_count);
 
                 if (cmd == "R") begin
-                    // Execute Read
                     $display("[TB] EXEC: READ  Addr: 0x%h", file_addr);
                     execute_read(file_addr);
                 end else if (cmd == "W") begin
-                    // For Write, we need to read one more value (Data)
                     scan_result = $fscanf(file_handle, "%h", file_data);
                     $display("[TB] EXEC: WRITE Addr: 0x%h Data: 0x%h", file_addr, file_data);
                     execute_write(file_addr, file_data);
-                end else begin
-                    // Handle comments or invalid lines gracefully (simplified)
-                    // Note: $fscanf might get stuck on comments in complex files, 
-                    // but for simple "R addr" this works.
                 end
             end
         end
@@ -165,144 +265,5 @@ module tb_cache_controller;
         $display("========================================================");
         $finish;
     end
-
-    // --- Main Memory Simulation Logic (REAL MEMORY) ---
-    // NOTE: SystemVerilog associative array for sparse memory
-    // If using standard Verilog-2001, use a large reg array or $readmemh
-    // Since VCS supports SV by default with .v files usually, we try SV associative.
-    // If strict Verilog required, we can't simulate full 32-bit space easily.
-    // We'll use a simplified approach: A modest array masked by lower bits.
-
-    // 16KB Main Memory Model (simulating 32-bit address space with aliasing)
-    reg [31:0] mm_storage[0:4095];
-
-    reg [ 2:0] mm_state;
-    localparam MM_IDLE = 0;
-    localparam MM_READ_WAIT = 1;
-    localparam MM_WRITE_WAIT = 2;
-    localparam MM_DONE = 3;
-    integer mm_counter;
-    integer i;
-
-    // Helper to build a 512-bit block from 16 words
-    reg [511:0] temp_block;
-    reg [31:0] base_word_addr;
-
-    initial begin
-        mm_state = MM_IDLE;
-        // Initialize memory to 0
-        for (i = 0; i < 4096; i = i + 1) mm_storage[i] = 32'hFFFF_FFFF;
-    end
-
-    always @(posedge clk) begin
-        main_mem_ready <= 0;
-
-        case (mm_state)
-            MM_IDLE: begin
-                if (main_mem_read_req) begin
-                    $display("    [MainMem] Read Req -> Addr: %h", main_mem_addr);
-                    mm_counter <= 0;
-                    mm_state   <= MM_READ_WAIT;
-                end else if (main_mem_write_req) begin
-                    $display("    [MainMem] Write Req -> Addr: %h Data: %h", main_mem_addr,
-                             main_mem_data_out);
-                    mm_counter <= 0;
-                    mm_state   <= MM_WRITE_WAIT;
-                end
-            end
-
-            MM_READ_WAIT: begin
-                mm_counter <= mm_counter + 1;
-                if (mm_counter >= 3) begin
-                    // Fetch 16 words to form a 512-bit block
-                    // Align address to 64-byte boundary (lower 6 bits 0)
-                    // Use lower 14 bits of address for our small 16KB array
-                    base_word_addr = (main_mem_addr[13:0] & ~6'b111111) >> 2;
-
-                    for (i = 0; i < 16; i = i + 1) begin
-                        temp_block[(i*32)+:32] = mm_storage[base_word_addr+i];
-                    end
-                    main_mem_data_in <= temp_block;
-
-                    mm_state <= MM_DONE;
-                end
-            end
-
-            MM_WRITE_WAIT: begin
-                mm_counter <= mm_counter + 1;
-                if (mm_counter >= 3) begin
-                    // Perform the write
-                    // Use lower 14 bits for index
-                    mm_storage[main_mem_addr[13:0]>>2] <= main_mem_data_out;
-                    $display("    [MainMem] Stored %h at index %h", main_mem_data_out,
-                             main_mem_addr[13:0] >> 2);
-
-                    mm_state <= MM_DONE;
-                end
-            end
-
-            MM_DONE: begin
-                main_mem_ready <= 1;
-                $display("    [MainMem] Ready asserted.");
-                mm_state <= MM_IDLE;
-            end
-        endcase
-    end
-
-    // --- Tasks ---
-
-    task execute_read(input [31:0] addr);
-        begin
-            phy_addr = addr;
-            read_mem = 1;
-
-            @(posedge clk);
-            #1;
-            was_hit  = hit_miss;
-            read_mem = 0;
-
-            wait_for_idle();
-            print_result("READ ", addr);
-        end
-    endtask
-
-    task execute_write(input [31:0] addr, input [31:0] data);
-        begin
-            phy_addr = addr;
-            data_from_cpu = data;
-            write_mem = 1;
-
-            @(posedge clk);
-            #1;
-            was_hit   = hit_miss;
-            write_mem = 0;
-
-            wait_for_idle();
-            print_result("WRITE", addr);
-        end
-    endtask
-
-    task wait_for_idle;
-        integer timeout;
-        begin
-            timeout = 0;
-            while (ready_stall == 1 && timeout < 100) begin
-                @(posedge clk);
-                timeout = timeout + 1;
-            end
-            if (timeout == 100) $display("    [TB] WARNING: Timeout waiting for idle!");
-            #5;
-        end
-    endtask
-
-    task print_result(input [8*5:1] op_name, input [31:0] addr);
-        begin
-            $display("    [RESULT] %s @ %h | Status: %s | Data Out: %h | Set: %0d | Tag: %h",
-                     op_name, addr, (was_hit ? "HIT " : "MISS"), data_to_cpu,
-                     addr[11:6],  // Set Index
-                     addr[31:12]  // Tag
-            );
-        end
-    endtask
 
 endmodule
