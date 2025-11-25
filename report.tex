@@ -340,10 +340,10 @@ The Cache Controller manages data consistency. Figure \ref{fig:cc_block} shows t
 
 We implemented a robust Finite State Machine (FSM) to handle the cache lifecycle. One of the key snippet is the \textbf{Write-Through} logic. On a Write Hit, instead of invalidating the line, we update the specific cache word in-place while simultaneously sending the write to main memory.
 
-\begin{lstlisting}[language=Verilog, caption=True Write-Through with Cache Update Logic]
+\begin{lstlisting}[language=Verilog, caption=Write-Through with Cache Update Logic]
 // Inside the S_CHECK_HIT state of the FSM
 if (reg_is_write) begin
-    // ** True Write-Through Logic **
+    // ** Write-Through Logic **
     if (is_hit) begin
         // Update Cache on Write Hit
         cache_mem_write_en = 1'b1;
