@@ -175,8 +175,6 @@ module cache_controller (
             if (state == S_CHECK_HIT && is_hit && reg_is_write) begin
                 if (way0_hit) begin
                     //valid_store[addr_index][0] <= 1'b0;
-                    cache_mem_write_en <= 1'b1;
-                    cache_mem_data_in  <= reg_data_from_mmu;
                     $display("[CC] Wrote to Set %0d Way 0 cause Write Hit", addr_index);
 
                     // $display("[CC] Invalidated Set %0d Way 0 due to Write Hit", addr_index);
@@ -207,15 +205,20 @@ module cache_controller (
     wire write_done = (state == S_WRITE_THROUGH_WAIT) && main_mem_ready;
     assign ready_stall = ~((state == S_IDLE) || serviced_now || write_done);
 
+    wire [511:0] new_cache_line;
+
     always @(*) begin
-        next_state         = state;
-        cache_mem_index    = addr_index;
-        cache_mem_data_in  = 'd0;
-        cache_mem_write_en = 1'b0;
-        main_mem_addr      = 'd0;
-        main_mem_data_out  = 'd0;
-        main_mem_read_req  = 1'b0;
-        main_mem_write_req = 1'b0;
+        next_state                           = state;
+        cache_mem_index                      = addr_index;
+        cache_mem_data_in                    = 'd0;
+        cache_mem_write_en                   = 1'b0;
+        main_mem_addr                        = 'd0;
+        main_mem_data_out                    = 'd0;
+        main_mem_read_req                    = 1'b0;
+        main_mem_write_req                   = 1'b0;
+
+        new_cache_line                       = cache_mem_data_out;
+        new_cache_line[(word_offset*32)+:32] = reg_data_from_mmu;
 
         case (state)
             S_IDLE: begin
@@ -227,6 +230,8 @@ module cache_controller (
                     if (is_hit) next_state = S_IDLE;
                     else next_state = S_READ_MISS_FETCH;
                 end else if (reg_is_write) begin
+                    cache_mem_write_en = 1'b1;
+                    cache_mem_data_in = new_cache_line;
                     next_state = S_WRITE_THROUGH;
                 end
             end
@@ -249,9 +254,6 @@ module cache_controller (
             end
 
             S_WRITE_THROUGH: begin
-                cache_mem_write_en = 1'b1;
-                cache_mem_data_in  = reg_data_from_mmu;
-
                 main_mem_addr      = reg_phy_addr;
                 main_mem_data_out  = reg_data_from_mmu;
                 main_mem_write_req = 1'b1;
