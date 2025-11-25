@@ -297,7 +297,7 @@ module tb_cache_controller;
 
     task print_result(input [8*5:1] op_name, input [31:0] addr);
         begin
-            $display("    [RESULT] %s @ %h | Status: %s | Data Out: %h | Set: %0d | Tag: %h",
+            $display("    [RESULT] %s @ %h | Status: %s | Data To CPU: %h | Set: %0d | Tag: %h",
                      op_name, addr, (was_hit ? "HIT " : "MISS"), data_to_cpu,
                      addr[11:6],  // Set Index
                      addr[31:12]  // Tag

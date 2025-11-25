@@ -170,18 +170,26 @@ module cache_controller (
                 reg_data_to_cpu <= cache_mem_data_out[(word_offset*32)+:32];
             end
 
-            // // ** Robust Invalidation **
-            // // We only invalidate if we are actively writing and have a hit.
-            // if (state == S_CHECK_HIT && is_hit && reg_is_write) begin
-            //     if (way0_hit) begin
-            //         valid_store[addr_index][0] <= 1'b0;
-            //         $display("[CC] Invalidated Set %0d Way 0 due to Write Hit", addr_index);
-            //     end
-            //     if (way1_hit) begin
-            //         valid_store[addr_index][1] <= 1'b0;
-            //         $display("[CC] Invalidated Set %0d Way 1 due to Write Hit", addr_index);
-            //     end
-            // end
+            // ** Robust Invalidation **
+            // We only invalidate if we are actively writing and have a hit.
+            if (state == S_CHECK_HIT && is_hit && reg_is_write) begin
+                if (way0_hit) begin
+                    //valid_store[addr_index][0] <= 1'b0;
+                    lru_store[addr_index] <= 1'b1;
+                    cache_mem_write_en <= 1'b1;
+                    cache_mem_data_in <= reg_data_from_mmu;
+                    $display("[CC] Wrote to Set %0d Way 0 cause Write Hit", addr_index);
+
+                    // $display("[CC] Invalidated Set %0d Way 0 due to Write Hit", addr_index);
+                end
+                if (way1_hit) begin
+                    //valid_store[addr_index][1] <= 1'b0;
+                    lru_store[addr_index] <= 1'b0;
+                    cache_mem_write_en <= 1'b1;
+                    cache_mem_data_in <= reg_data_from_mmu;
+                    $display("[CC] Wrote to Set %0d Way 1 cause Write Hit", addr_index);
+                end
+            end
 
             if (state == S_READ_MISS_REFILL) begin
                 victim_way = lru_store[reg_phy_addr[31-TAG_BITS : OFFSET_BITS]];
@@ -242,8 +250,8 @@ module cache_controller (
             end
 
             S_WRITE_THROUGH: begin
-                cache_mem_write_en = 1'b1;
-                cache_mem_data_in  = reg_data_from_mmu;
+                // cache_mem_write_en = 1'b1;
+                // cache_mem_data_in  = reg_data_from_mmu;
 
                 main_mem_addr      = reg_phy_addr;
                 main_mem_data_out  = reg_data_from_mmu;
