@@ -24,20 +24,17 @@
 `ifndef MMU_PARAMS_V
 `define MMU_PARAMS_V
 
-// --- Address Sizes (configurable) ---
+// Address Sizes (configurable)
 `define ADDR_WIDTH 32
 `define PAGE_SIZE 4096
 
-// FIX HERE: Notice the backtick before PAGE_SIZE inside the parenthesis
 `define OFFSET_BITS $clog2(`PAGE_SIZE)
 
-// FIX HERE: Notice backticks before ADDR_WIDTH and OFFSET_BITS
 `define VPN_WIDTH (`ADDR_WIDTH - `OFFSET_BITS)
 `define PFN_WIDTH (`ADDR_WIDTH - `OFFSET_BITS)
 
 // --- TLB Configuration ---
 `define TLB_ENTRIES 4
-// FIX HERE: Notice backtick before TLB_ENTRIES
 `define TLB_PER_BITS $clog2(`TLB_ENTRIES)
 
 // --- MMU Status Codes ---
