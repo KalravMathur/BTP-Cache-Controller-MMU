@@ -79,10 +79,10 @@ module cache_mem (
             $display("[CacheMem] Write en");
             if (lru_bit == 1'b0) begin
                 way0[index] <= data_in;
-                $display("[CacheMem] Wrote to Set %0d, Way 0: %h", index, data_in);
+                $display("[CacheMem] Wrote to Set %0d, Way 0", index);
             end else begin
                 way1[index] <= data_in;
-                $display("[CacheMem] Wrote to Set %0d, Way 1: %h", index, data_in);
+                $display("[CacheMem] Wrote to Set %0d, Way 1", index);
             end
         end
     end

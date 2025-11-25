@@ -234,8 +234,6 @@ module tb_cache_controller;
                     // Perform the write
                     // Use lower 14 bits for index
                     mm_storage[main_mem_addr[13:0]>>2] <= main_mem_data_out;
-                    $display("    [MainMem] Stored %h at index %h", main_mem_data_out,
-                             main_mem_addr[13:0] >> 2);
 
                     mm_state <= MM_DONE;
                 end
@@ -297,8 +295,7 @@ module tb_cache_controller;
 
     task print_result(input [8*5:1] op_name, input [31:0] addr);
         begin
-            $display("    [RESULT] %s @ %h | Status: %s | Data To CPU: %h | Set: %0d | Tag: %h",
-                     op_name, addr, (hit_miss ? "HIT " : "MISS"), data_to_cpu,
+            $display("    [RESULT] %s @ %h | Set: %0d | Tag: %h", op_name, addr,
                      addr[11:6],  // Set Index
                      addr[31:12]  // Tag
             );
