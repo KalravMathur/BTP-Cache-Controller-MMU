@@ -257,8 +257,8 @@ module tb_cache_controller;
             read_mem = 1;
 
             @(posedge clk);
-            #1;
-            was_hit  = hit_miss;
+            @(posedge clk);
+            //was_hit  = hit_miss;
             read_mem = 0;
 
             wait_for_idle();
@@ -273,8 +273,8 @@ module tb_cache_controller;
             write_mem = 1;
 
             @(posedge clk);
-            #1;
-            was_hit   = hit_miss;
+            @(posedge clk);
+            // was_hit   = hit_miss;
             write_mem = 0;
 
             wait_for_idle();
@@ -291,14 +291,14 @@ module tb_cache_controller;
                 timeout = timeout + 1;
             end
             if (timeout == 100) $display("    [TB] WARNING: Timeout waiting for idle!");
-            #5;
+            //#5;
         end
     endtask
 
     task print_result(input [8*5:1] op_name, input [31:0] addr);
         begin
             $display("    [RESULT] %s @ %h | Status: %s | Data To CPU: %h | Set: %0d | Tag: %h",
-                     op_name, addr, (was_hit ? "HIT " : "MISS"), data_to_cpu,
+                     op_name, addr, (hit_miss ? "HIT " : "MISS"), data_to_cpu,
                      addr[11:6],  // Set Index
                      addr[31:12]  // Tag
             );

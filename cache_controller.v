@@ -242,8 +242,8 @@ module cache_controller (
             end
 
             S_READ_MISS_REFILL: begin
-                cache_mem_index    = reg_phy_addr[31-TAG_BITS : OFFSET_BITS];
-                cache_mem_data_in  = reg_block_from_mem;
+                //cache_mem_index    = reg_phy_addr[31-TAG_BITS : OFFSET_BITS];
+                cache_mem_data_in = reg_block_from_mem;
                 cache_mem_write_en = 1'b1;
                 next_state = S_IDLE;
             end
