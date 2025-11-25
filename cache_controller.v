@@ -205,7 +205,7 @@ module cache_controller (
     wire write_done = (state == S_WRITE_THROUGH_WAIT) && main_mem_ready;
     assign ready_stall = ~((state == S_IDLE) || serviced_now || write_done);
 
-    wire [511:0] new_cache_line;
+    reg [511:0] new_cache_line;
 
     always @(*) begin
         next_state                           = state;
