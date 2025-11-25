@@ -66,8 +66,8 @@ module cache_mem (
     integer i;
     initial begin
         for (i = 0; i < 64; i = i + 1) begin
-            way0[i] = 512'd1;
-            way1[i] = 512'd1;
+            way0[i] = 512'd0;
+            way1[i] = 512'd0;
         end
     end
 
@@ -76,6 +76,7 @@ module cache_mem (
         if (write_en) begin
             // If we are writing, we use the LRU bit to decide which way is the victim
             // (The controller flips the LRU *after* the write, so the current LRU value points to the victim)
+            $display("[CacheMem] Write en");
             if (lru_bit == 1'b0) begin
                 way0[index] <= data_in;
                 $display("[CacheMem] Wrote to Set %0d, Way 0: %h", index, data_in);
