@@ -232,7 +232,7 @@ module cache_controller (
             end
 
             S_READ_MISS_FETCH: begin
-                main_mem_addr     = {reg_phy_addr[31:OFFSET_BITS], {OFFSET_BITS{1'b0}}};
+                main_mem_addr     = reg_phy_addr[31:O];
                 main_mem_read_req = 1'b1;
                 next_state        = S_READ_MISS_WAIT;
             end
