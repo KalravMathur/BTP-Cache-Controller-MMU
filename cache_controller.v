@@ -47,55 +47,6 @@
  * - Replacement Policy: Least Recently Used (LRU)
  */
 
-////////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2025, Shiv Nadar University, Delhi NCR, India. All Rights
-// Reserved. Permission to use, copy, modify and distribute this software for
-// educational, research, and not-for-profit purposes, without fee and without a
-// signed license agreement, is hereby granted, provided that this paragraph and
-// the following two paragraphs appear in all copies, modifications, and
-// distributions.
-//
-// IN NO EVENT SHALL SHIV NADAR UNIVERSITY BE LIABLE TO ANY PARTY FOR DIRECT,
-// INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST
-// PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE.
-//
-// SHIV NADAR UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT
-// NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-// PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS PROVIDED "AS IS". SHIV
-// NADAR UNIVERSITY HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
-// ENHANCEMENTS, OR MODIFICATIONS.
-//
-// Revision History:
-// Date          By                     Change Notes
-// 14 Nov 2025   Kalrav Mathur          Original
-// 18 Nov 2025   Kalrav Mathur          Fix crital logic errors (now simulation working) - need to fix some logic errors now based on the waveform
-////////////////////////////////////////////////////////////////////////////////
-
-/*
- * Cache Controller Module (2-Way Set-Associative, Write-Through)
- *
- * This module implements the cache controller logic based on the project slides
- * and report parameters.
- *
- * Parameters from Report:
- * - Physical Address: 32 bits
- * - Cache Size:a 8 KB
- * - Block Size: 64 Bytes
- * - Associativity: 2-Way
- *
- * Derived Parameters:
- * - Offset bits = log2(64) = 6 bits
- * - Total Blocks = 8KB / 64B = 128 blocks
- * - Number of Sets = 128 blocks / 2 ways = 64 sets
- * - Index bits = log2(64) = 6 bits
- * - Tag bits = 32 - 6 (Index) - 6 (Offset) = 20 bits
- *
- * Policies:
- * - Write Policy: Write-Through (data is written 
- * to both cache and main memory)
- * - Replacement Policy: Least Recently Used (LRU)
- */
-
 `timescale 1ns / 1ps
 module cache_controller (
     input wire clk,
