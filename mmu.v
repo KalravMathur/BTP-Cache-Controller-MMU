@@ -61,7 +61,6 @@ module system_top (
     output wire        cache_hit,    // status from cache
 
     // TLB Refill Interface (for Testbench/PTW)
-    ß
     // Signal that a translation is missing
     output reg                  tlb_miss_detected,
 
@@ -70,9 +69,7 @@ module system_top (
     input wire [`VPN_WIDTH-1:0] tb_refill_vpn,
     input wire [`PFN_WIDTH-1:0] tb_refill_pfn,
 
-    ß
     // Main Memory & Cache RAM Interfaces (Passed through from Cache Controller)
-    ß
     // Interface to Cache SRAM (Data Store)
     output wire [5:0]   cache_mem_index,
     output wire [511:0] cache_mem_data_in,
@@ -89,9 +86,6 @@ module system_top (
     input wire          main_mem_ready
 );
 
-    ß
-    // Internal Signals
-    ß
     // Address components
     wire [`VPN_WIDTH-1:0]    cpu_vpn;
     wire [`OFFSET_BITS-1:0]  page_offset;
@@ -110,16 +104,12 @@ module system_top (
     // Stall signal from the cache controller (0=ready, 1=stall)
     wire                     cache_ready_stall;
 
-    ß
     // Address Splitting
-    ß
     // Extract VPN and offset from the CPU's Virtual Address
     assign cpu_vpn     = cpu_va[31:`OFFSET_BITS];
     assign page_offset = cpu_va[`OFFSET_BITS-1:0];
 
-    ß
     // Instantiate TLB
-    ß
     tlb_simple u_tlb (
         .clk        (clk),
         .rst_n      (rst_n),
@@ -133,9 +123,7 @@ module system_top (
         .refill_pfn (tb_refill_pfn)
     );
 
-    ß
     // Translation & Control Logic (Combinational)
-    ß
     always @(*) begin
         // Defaults
         tlb_miss_detected = 1'b0;
@@ -173,9 +161,7 @@ module system_top (
     assign cpu_stall = cache_ready_stall || tlb_miss_detected;
 
 
-    ß
     // Instantiate Cache Controller
-    ß
     cache_controller u_cache_controller (
         .clk                (clk),
         .rst_n              (rst_n),
